@@ -1,0 +1,83 @@
+name: PyInstaller
+
+on: 
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        python-version: [3.9]
+        include:
+          - os: windows-latest
+            filename: AutoBach.exe
+          - os: ubuntu-latest
+            filename: AutoBach
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller build.spec
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: AutoBach-${{ matrix.os }}
+          path: dist/${{ matrix.FILENAME }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        with:
+          tag_name: ${{github.ref_name}}
+          release_name: Release ${{github.ref_name}}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset (Windows)
+        id: upload-release-asset-windows
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./AutoBach-windows-latest/AutoBach.exe
+          asset_name: AutoBach-windows.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload Release Asset (Linux)
+        id: upload-release-asset-linux
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./AutoBach-ubuntu-latest/AutoBach
+          asset_name: AutoBach-linux
+          asset_content_type: application/octet-stream

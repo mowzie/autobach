@@ -1,3 +1,10 @@
+# files used in local development, but I want to keep around
+midiInfo.py
+parseMidi.py
+.vscode/
+.mid
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
