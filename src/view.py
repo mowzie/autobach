@@ -584,7 +584,7 @@ class OrganPlayerView(tk.Tk):
 
     def submit_seperator(self, seperator_text, seperator_window):
         tag = "text"
-        self.playlist_treeview.insert("", "end", values=("___", seperator_text, "___"), tags=(tag,))
+        self.playlist_treeview.insert("", "end", values=("", seperator_text, ""), tags=(tag,))
         seperator_window.destroy()
 
     def move_up(self):
