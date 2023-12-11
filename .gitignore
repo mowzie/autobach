@@ -2,7 +2,7 @@
 midiInfo.py
 parseMidi.py
 .vscode/
-.mid
+src/hymns/*.mid
 
 
 # Byte-compiled / optimized / DLL files
