@@ -615,8 +615,9 @@ class OrganPlayerView(tk.Tk):
         if selected_item:
             self.playlist_treeview.delete(selected_item)
             # Update tags of all items below the deleted item
-            for i, item_id in enumerate(self.playlist_treeview.get_children()):
-                self.playlist_treeview.item(item_id, tags=('oddrow' if i % 2 else 'evenrow'))
+            for i, item in enumerate(self.playlist_treeview.get_children()):
+                if "text" not in self.playlist_treeview.item(item, "tags"):
+                  self.playlist_treeview.item(item, tags=('oddrow' if i % 2 else 'evenrow'))
 
     def show_loading_message(self):
         print("Loading", "The library files are still loading. Please wait.")
