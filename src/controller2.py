@@ -245,6 +245,7 @@ class PlaybackController:
                 self.scaled_time += 0.01 * self.scaler
                 update_progress_callback((self.scaled_time / duration) * 100)
                 start_time = current_time
+        update_progress_callback(0)
 
     def __playback_thread(self, hymn, update_progress_callback):
         """
@@ -284,7 +285,6 @@ class PlaybackController:
             threading.Thread(target=self.progressbar_thread, args=(update_progress_callback, real_duration)).start()
 
             for (msg, acc_time) in midi.play(starting_timestamp=marker.start_time, ending_timestamp=marker.stop_time):
-               # self.scaled_time = acc_time
                 if self.stop_thread.is_set():
                     break
                 self.handle_bpm_changes(midi, base_bpm)
@@ -292,7 +292,7 @@ class PlaybackController:
                 self.handle_note_messages(msg, track_names, transpose, step, outport)
                 step += 1
             self.stop_progressthread.set()
-            #self.model.reset_midi_output(outport)
+            update_progress_callback(0)
 
         self.stop_progressthread.set()
         self.model.reset_midi_output(outport)
