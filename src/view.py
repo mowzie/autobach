@@ -1,5 +1,6 @@
 # view.py
 import os
+import sys
 import tkinter as tk
 from tkinter import Checkbutton, IntVar, ttk
 from tkinter import font
@@ -12,7 +13,10 @@ PLAYLIST_TEXT_BG = "#343A40"
 PLAYLIST_TEXT = "#f8f9fa"
 LIBRARY_PARENT = "#ff7851"
 LIBRARY_SELECTED = "#e99002"
-basedir = os.path.dirname(os.path.abspath(__file__))
+if hasattr(sys, '_MEIPASS'):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(__file__)
 
 class ScrolledTreeView(ttk.Treeview):
     def __init__(self, parent, *args, **kwargs):
@@ -399,7 +403,7 @@ class OrganPlayerView(tk.Tk):
         self.minsize(120, 450)
         self.maxsize(1604, 1248)
         self.resizable(0,  0)
-        icon_path = os.path.join(basedir, 'images', 'organ.ico')
+        icon_path = os.path.join(BASE_DIR, 'images', 'organ.ico')
         self.iconbitmap(icon_path)
         self.title("AutoBach Organ Player")
         self.configure(relief="ridge")

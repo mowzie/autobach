@@ -4,6 +4,7 @@ import ctypes
 import json
 import multiprocessing
 import os
+import sys
 import time
 from tkinter import Checkbutton, IntVar
 import concurrent.futures
@@ -12,9 +13,15 @@ import mido
 import mido.backends.rtmidi
 from Stops2 import Stop, get_sysex, program_change_dict
 
-HYMNPATH = os.path.join(os.path.dirname(__file__), "Hymns")
-LITURGYPATH = os.path.join(os.path.dirname(__file__), "Liturgy")
-PSALMNOTESPATH = os.path.join(os.path.dirname(__file__), "PsalmNotes")
+if hasattr(sys, '_MEIPASS'):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(__file__)
+
+PLAYLISTSAVESPATH = os.path.join(BASE_DIR, 'PlaylistSaves')
+HYMNPATH = os.path.join(BASE_DIR, "Hymns")
+LITURGYPATH = os.path.join(BASE_DIR, "Liturgy")
+PSALMNOTESPATH = os.path.join(BASE_DIR, "PsalmNotes")
 
 class PlaylistHymn:
     """
@@ -536,8 +543,8 @@ class OrganPlayerModel:
         start_time = time.time()
         midi_path = ""
         cache = {}
-        if (not reloadCache and os.path.exists("cache.json")):
-            temp_cache = self.load_cache("cache.json")
+        if (not reloadCache and os.path.exists(os.path.join(BASE_DIR, "cache.json"))):
+            temp_cache = self.load_cache(os.path.join(BASE_DIR, "cache.json"))
             for key, hymn in temp_cache.items():
                 kind = hymn['kind']
                 if kind not in cache:
@@ -557,7 +564,11 @@ class OrganPlayerModel:
                 cache[kind] = {}
             if not os.path.exists(midi_path):
                 continue
-            midi_files = [(os.path.join(midi_path, entry.name), kind) for entry in os.scandir(midi_path) if entry.is_file() and entry.name.endswith('.mid')]
+            midi_files = []
+            for entry in os.scandir(midi_path):
+                if entry.is_file() and entry.name.endswith('.mid'):
+                    relative_path = os.path.join(".", os.path.relpath(os.path.join(midi_path, entry.name), BASE_DIR))
+                    midi_files.append((relative_path, kind))
             midi_files = [(midi_file, kind) for midi_file, kind in midi_files if not any(midi_file == hymn['path'] for hymn in cache[kind].values())]
             files_to_process.extend(midi_files)
 
@@ -577,7 +588,7 @@ class OrganPlayerModel:
             for hymn in kind_hymns.values():
                 hymn = LibraryHymn.dict_to_hymn(hymn)
                 self.library[f"{hymn.hymn_number}-{hymn.title}"] = hymn
-        self.save_cache("cache.json", self.library)
+        self.save_cache(os.path.join(BASE_DIR, "cache.json"), self.library)
         end_time = time.time()
         execution_time = end_time - start_time
 

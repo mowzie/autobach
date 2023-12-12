@@ -1,4 +1,5 @@
 import os
+import sys
 import queue
 import threading
 from tkinter import filedialog, messagebox
@@ -7,8 +8,12 @@ import time
 from MidoAdd import MidiFile
 from Stops2 import DefaultSettings
 
-PLAYLISTSAVESPATH = os.path.join(os.path.dirname(__file__), "PlaylistSaves")
+if hasattr(sys, '_MEIPASS'):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(__file__)
 
+PLAYLISTSAVESPATH = os.path.join(BASE_DIR, 'PlaylistSaves')
 
 class OrganPlayerController:
     def __init__(self, model, view):
@@ -16,6 +21,7 @@ class OrganPlayerController:
         self.library_controller = LibraryController(model, view)
         self.playlist_controller = PlaylistController(model, view)
         self.playback_controller = PlaybackController(model, view)
+        self.basedir = BASE_DIR
 
     def is_playing(self):
         return self.playback_controller.is_playing
@@ -112,7 +118,7 @@ class LibraryController:
         return self.model.get_hymn_from_library(item)
 
     def save_library(self):
-        self.model.save_library("cache.json", self.model.library)
+        self.model.save_library(os.path.join(BASE_DIR, "cache.json"), self.model.library)
 
 class PlaylistController:
     def __init__(self, model, view):
