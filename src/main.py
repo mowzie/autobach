@@ -1,6 +1,5 @@
 # main.py
-import mido
-import mido.backends.rtmidi
+import multiprocessing
 from model import OrganPlayerModel
 from view import OrganPlayerView
 from controller2 import OrganPlayerController
@@ -17,5 +16,7 @@ def main():
     # Start the Tkinter main loop
     view.start_mainloop()
 
+
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     main()
