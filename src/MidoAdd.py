@@ -68,7 +68,7 @@ class MidiFile(mido.MidiFile):
             accumulated_time += delta
             if msg.type == 'set_tempo':
                 tempo = msg.tempo
-            if msg.type == "note_on" and accumulated_time > self.starting_timestamp:
+            if msg.type == "note_on" and accumulated_time >= self.starting_timestamp:
                 starting_message_number = i
                 break
 
