@@ -1,3 +1,4 @@
+
 import os
 import sys
 import queue
@@ -5,23 +6,52 @@ import threading
 from tkinter import filedialog, messagebox
 import tkinter
 import time
-from MidoAdd import MidiFile
-from Stops2 import DefaultSettings
+from MidoOverride import MidiFile
+from Stops2 import DefaultSettings, Channels
 
 if hasattr(sys, '_MEIPASS'):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
     BASE_DIR = os.path.dirname(__file__)
 
+#pylint: disable=line-too-long
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
 PLAYLISTSAVESPATH = os.path.join(BASE_DIR, 'PlaylistSaves')
 
 class OrganPlayerController:
+
     def __init__(self, model, view):
         self.model = model
         self.library_controller = LibraryController(model, view)
         self.playlist_controller = PlaylistController(model, view)
         self.playback_controller = PlaybackController(model, view)
-        self.basedir = BASE_DIR
+        self.midi_device = None
+
+    def get_library(self):
+        return self.library_controller.get_library()
+
+    def clear_playlist(self):
+        self.playlist_controller.clear_playlist()
+
+    def get_preset_stops(self, preset):
+        return DefaultSettings().get_default_stops(preset)
+
+    def sort_markers(self, markers):
+        return self.playlist_controller.sort_markers(markers)
+
+    def remove_from_playlist(self, hymn):
+        self.playlist_controller.remove_from_playlist(hymn)
+
+    def add_hymn_to_library(self, hymn):
+        self.model.add_hymn_to_library(hymn)
+
+    def update_library_hymn(self, hymn, index):
+        self.library_controller.update_library_hymn(hymn, index)
+
+    def update_playlist_hymn(self, selected_hymn, index):
+        self.playlist_controller.edit_playlist_item(selected_hymn, index)
 
     def is_playing(self):
         return self.playback_controller.is_playing
@@ -36,6 +66,9 @@ class OrganPlayerController:
         if not hymn.is_hymn:
             return
         self.playback_controller.play_file(hymn, update_progress_callback)
+
+    def set_midi_device(self, midi_device):
+        self.playback_controller.set_midi_device(midi_device)
 
     def change_bpm(self, bpm):
         self.playback_controller.change_bpm(bpm)
@@ -57,18 +90,22 @@ class OrganPlayerController:
 
     def get_hymn_from_library(self, item):
         return self.library_controller.get_hymn_from_library(item)
+    
+    def get_hymn_from_library_to_playlist(self, item):
+        hymn = self.library_controller.get_hymn_from_library(item)
+        return self.model.convert_library_hymn_to_playlist_hymn(hymn)
 
     def load_library_files(self, reloadCache = False, total_files_callback = None, update_progress_callback=None):
         self.library_controller.load_library_files(reloadCache = reloadCache,total_files_callback = total_files_callback, update_progress_callback=update_progress_callback)
 
     def get_default_stops(self):
-        return DefaultSettings().get_default_stops()
-
-    def get_default_stops_and_channels(self):
-        return DefaultSettings().get_default_stops_and_channels()
+        return DefaultSettings().get_default_stops("default")
 
     def get_midi_devices(self):
         return self.model.get_midi_devices()
+     
+    def load_song(self, file_path):
+        return self.model.update_cache(file_path, None)
 
     def save_library(self):
         self.model.save_library()
@@ -80,6 +117,9 @@ class LibraryController:
         self.loading_done = threading.Event()
         self.view = view
 
+    def update_library_hymn(self, hymn, index):
+        self.model.update_library_hymn(hymn)
+
     def load_library_files(self, reloadCache = False, total_files_callback = None, update_progress_callback=None):
         def task(callback, total_files_callback, update_progress_callback):
             def update_progress_callback(value):
@@ -87,8 +127,6 @@ class LibraryController:
 
             self.library_files = self.model.refresh_library_thread(reloadCache ,total_files_callback, update_progress_callback)
             self.loading_done.set()
-            self.view.library_window.show_library_frame()
-
             callback(self.library_files)
         # TODO: move this to the model to update the view
         threading.Thread(target=task, args=(self.view.stop_loading,total_files_callback, update_progress_callback,)).start() 
@@ -125,6 +163,16 @@ class PlaylistController:
         self.model = model
         self.view = view
 
+    def edit_playlist_item(self, selected_hymn, index):
+        sorted_markers, abbreviated_titles = self.sort_markers_and_get_abbreviated_titles(selected_hymn.selected_markers)
+        selected_hymn.selected_markers = sorted_markers
+        selected_hymn.abbreviated_titles = abbreviated_titles
+        self.model.edit_playlist_item(selected_hymn, index)
+        self.view.update_playlist_item(selected_hymn, index)
+
+    def clear_playlist(self):
+        self.model.clear_playlist()
+
     def load_playlist(self):
         if not os.path.exists(PLAYLISTSAVESPATH):
             os.mkdir(PLAYLISTSAVESPATH)
@@ -148,8 +196,10 @@ class PlaylistController:
         hymn.selected_markers = sorted_markers
         hymn.abbreviated_titles = abbreviated_titles
         self.model.add_to_playlist(hymn)
-        # TODO: Move this to the model
         self.view.update_playlist(hymn)
+
+    def sort_markers(self, markers):
+        return sorted(markers, key=self.custom_sort)
 
     def sort_markers_and_get_abbreviated_titles(self, markers):
         sorted_markers = sorted(markers, key=self.custom_sort)
@@ -167,6 +217,9 @@ class PlaylistController:
 
     def get_hymn_from_playlist(self, values):
         return self.model.get_hymn_from_playlist(values)
+    
+    def remove_from_playlist(self, hymn):
+        self.model.remove_from_playlist(hymn)
 
 class PlaybackController:
     """
@@ -208,6 +261,18 @@ class PlaybackController:
         self.current_time = 0.0
         self.scaler = 1.0
 
+    def set_midi_device(self, midi_device):
+        """
+        Sets the MIDI device name.
+
+        Args:
+            midi_device (str): The MIDI device name.
+
+        Returns:
+            None
+        """
+        self.midi_device = midi_device
+
     def play_file(self, hymn, update_progress_callback):
         """
         Plays a MIDI file.
@@ -223,6 +288,9 @@ class PlaybackController:
             return
         if self.midi_device is None:
             self.midi_device = self.model.get_midi_device()
+        if self.midi_device is None:
+            messagebox.showerror("Error", "No MIDI device selected")
+            return
         self.view.update_current_song(hymn.title)
         self.is_playing = True
         self.stop_thread.clear()
@@ -249,7 +317,7 @@ class PlaybackController:
             elapsed_time = current_time - start_time
             if elapsed_time >= 0.01:
                 self.scaled_time += 0.01 * self.scaler
-                update_progress_callback((self.scaled_time / duration) * 100)
+                update_progress_callback((self.scaled_time /  duration) * 100)
                 start_time = current_time
         update_progress_callback(0)
 
@@ -293,19 +361,21 @@ class PlaybackController:
             for (msg, acc_time) in midi.play(starting_timestamp=marker.start_time, ending_timestamp=marker.stop_time):
                 if self.stop_thread.is_set():
                     break
+                self.handle_sysex_messages_queue(outport)
                 self.handle_bpm_changes(midi, base_bpm)
                 self.handle_transpose_changes(outport, transpose)
                 self.handle_note_messages(msg, track_names, transpose, step, outport)
+
                 step += 1
             self.stop_progressthread.set()
             update_progress_callback(0)
 
         self.stop_progressthread.set()
         self.model.reset_midi_output(outport)
-        self.model.close_midi_output(outport)
         self.view.update_current_section("")
         self.view.update_current_song("")
         self.is_playing = False
+        self.view.select_next_item()
 
     def handle_sysex_messages(self, outport, stops):
         """
@@ -321,9 +391,25 @@ class PlaybackController:
         if stops != []:
             sysex_string = self.model.stops_to_sysex(stops)
             msg = self.model.sysex_to_mido(sysex_string)
-         #   print(sysex_string)
-         #   print(msg)
+      #   print(sysex_string)
+          #   print(msg)
             self.model.send_midi_message(msg, outport)
+
+    def handle_sysex_messages_queue(self, outport):
+        """
+        Handles the SysEx messages for the engaged stops.
+
+        Args:
+            outport (mido.ports.Output): The MIDI output port.
+            stops (list): The list of engaged stops.
+
+        Returns:
+            None
+        """
+
+        if not self.sysex_queue.empty():
+            stop_msg = self.sysex_queue.get()
+            self.model.send_midi_message(stop_msg, outport)
 
     def handle_bpm_changes(self, midi, base_bpm):
         """
@@ -381,11 +467,15 @@ class PlaybackController:
             try:
                 new_msg = msg.copy()
                 new_msg.channel = track_names[msg.channel+1]
+                if new_msg.channel == 0:
+                    return
+                print(f"{msg.channel} > {new_msg.channel} which should be {Channels(new_msg.channel)}.")
             except KeyError:
                 return
             if transpose != 0:
                 new_msg.note += transpose
            # print("step " + str(step), new_msg.type, str(new_msg))
+            print(new_msg)
             self.model.send_midi_message(new_msg, outport)
 
     def stop_playback(self):
@@ -393,7 +483,7 @@ class PlaybackController:
         Stops the playback.
 
         Returns:
-            None
+            None    
         """
         self.stop_thread.set()
 

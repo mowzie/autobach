@@ -2,10 +2,11 @@ import binascii
 from enum import Enum
 
 class Channels(Enum):
-    Swell = 13
-    Great = 12
-    Choir = 15
-    Pedal = 14
+    Great = 11
+    Pedal = 13
+    Choir = 14
+    Swell = 12
+    Disabled = 0
 
 class StopType(Enum):
     REED = "Reed"
@@ -88,7 +89,7 @@ class Pedal(Enum):
     SUBBASS_16 =      "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 00 00 00 00 00 00" #principal
     OCTAVA_8 =        "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00" #principal
     BOURDON_8 =       "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 08 00 00 00 00 00 00 00 00 00 00"    #flute
-    CHORALBASS_4 =    "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00" #principal
+    CHORAL_BASS_4 =   "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00" #principal
     POSAUNE_16 =      "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 00 00" 
     TROMPETE_8 =      "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00 00 00 00" #reed
     KLARINE_4 =       "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00 00 00 00 00" #reed
@@ -122,7 +123,7 @@ great.add_stop("CHOIR_TO_GREAT", Stop("CHOIR_TO_GREAT", Great.CHOIR_TO_GREAT.val
 
 
 # Add the stops to the Swell manual
-swell.add_stop("GEIGEN_DIPASON_8", Stop("GEIGEN_DIAPASON_8", Swell.GEIGEN_DIAPASON_8.value, StopType.STRING.value, False, "Geigen\nDiapason\n8"))
+swell.add_stop("GEIGEN_DIAPASON_8", Stop("GEIGEN_DIAPASON_8", Swell.GEIGEN_DIAPASON_8.value, StopType.STRING.value, False, "Geigen\nDiapason\n8"))
 swell.add_stop("BOURDON_8", Stop("BOURDON_8", Swell.BOURDON_8.value, StopType.FLUTE.value, False, "Bourdon\n8"))
 swell.add_stop("VIOLA_CELESTE_II_8", Stop("VIOLA_CELESTE_II_8", Swell.VIOLA_CELESTE_II_8.value, StopType.STRING.value, False, "Voila\nCeleste\nII"))
 swell.add_stop("PRINCIPAL_4", Stop("PRINCIPAL_4", Swell.PRINCIPAL_4.value, StopType.PRINCIPAL.value, False, "Principal\n4"))
@@ -141,7 +142,7 @@ pedal.add_stop("PRINCIPAL_16", Stop("PRINCIPAL_16", Pedal.PRINCIPAL_16.value, St
 pedal.add_stop("SUBBASS_16", Stop("SUBBASS_16", Pedal.SUBBASS_16.value, StopType.PRINCIPAL.value, False, "Subbass\n16"))
 pedal.add_stop("OCTAVA_8", Stop("OCTAVA_8", Pedal.OCTAVA_8.value, StopType.PRINCIPAL.value, False, "Octava\n8"))
 pedal.add_stop("BOURDON_8", Stop("BOURDON_8", Pedal.BOURDON_8.value, StopType.FLUTE.value, False, "Bourdon\n8"))
-pedal.add_stop("CHORALBASS_4", Stop("CHORALBASS_4", Pedal.CHORALBASS_4.value, StopType.PRINCIPAL.value, False, "Choralbass\n4"))
+pedal.add_stop("CHORAL_BASS_4", Stop("CHORAL_BASS_4", Pedal.CHORAL_BASS_4.value, StopType.PRINCIPAL.value, False, "Choralbass\n4"))
 pedal.add_stop("POSAUNE_16", Stop("POSAUNE_16", Pedal.POSAUNE_16.value, StopType.REED.value, False, "Posaune\n16"))
 pedal.add_stop("TROMPETE_8", Stop("TROMPETE_8", Pedal.TROMPETE_8.value, StopType.REED.value, False, "Trompete\n8"))
 pedal.add_stop("KLARINE_4", Stop("KLARINE_4", Pedal.KLARINE_4.value, StopType.REED.value, False, "Klarine\n4"))
@@ -196,37 +197,144 @@ def get_sysex(stops):
     sysex_string = ' '.join(binascii.hexlify(sysex).decode()[i:i+2] for i in range(0, len(binascii.hexlify(sysex).decode()), 2))
     return sysex_string
 
+def get_stops_from_sysex(sysex_string):
+    HEADER = "F0 41 10 30 12"
+    FOOTER = "F7"
+    sysex = bytes.fromhex(sysex_string)
+    data = sysex[len(HEADER):-len(FOOTER)-1]  # Exclude header, footer and checksum
+
+    stops = []
+    for manual in manuals.values():
+        for stop in manual.stops.values():  # Assuming Stops.ALL_STOPS contains all possible stops
+            stop_bytes = bytes.fromhex(stop.hex_value)
+            if all(a & b == b for a, b in zip(data, stop_bytes)):  # If all bits in stop are set in data
+                stops.append(stop)
+    return stops
+
 
 class DefaultSettings:
     def __init__(self):
-        self.channel1 = Channels.Great
-        self.channel2 = Channels.Great
-        self.channel3 = Channels.Pedal
-        self.stop_settings = [
-            manuals["Choir"].stops["SPITZ_PRINCIPAL_8"],
-            manuals["Choir"].stops["SPITZFLOTE_4"],
-            manuals["Choir"].stops["SWELL_TO_CHOIR"],
-            manuals["Great"].stops["PRINCIPAL_8"],
-            manuals["Great"].stops["OCTAVA_4"],
-            manuals["Great"].stops["SWELL_TO_GREAT"],
-            manuals["Great"].stops["CHOIR_TO_GREAT"],
-            manuals['Swell'].stops["GEIGEN_DIPASON_8"],
-            manuals['Swell'].stops["PRINCIPAL_4"],
-            manuals['Swell'].stops["PICCOLO_2"],
-            manuals['Pedal'].stops["PRINCIPAL_16"],
-            manuals['Pedal'].stops["SUBBASS_16"],
-            manuals['Pedal'].stops["BOURDON_8"],
-            manuals['Pedal'].stops["CHOIR_TO_PEDAL"]
+        self.default_stop_settings = [
+            choir.stops["SPITZ_PRINCIPAL_8"],
+            choir.stops["SPITZFLOTE_4"],
+            choir.stops["SWELL_TO_CHOIR"],
+            great.stops["PRINCIPAL_8"],
+            great.stops["OCTAVA_4"],
+            great.stops["SWELL_TO_GREAT"],
+            swell.stops["GEIGEN_DIAPASON_8"],
+            swell.stops["PRINCIPAL_4"],
+            swell.stops["PICCOLO_2"],
+            pedal.stops["PRINCIPAL_16"],
+            pedal.stops["SUBBASS_16"],
+            pedal.stops["BOURDON_8"],
+        ]
+        self.intro_stop_settings = [
+            great.stops["VIOLONE_16"],
+            great.stops["GEMSHORN_8"],
+            pedal.stops["CHOIR_TO_PEDAL"],
+            choir.stops["STILL_GEDACKT_8"],
+            choir.stops["UNDA_MARIS_II_8"],
+        ]
+        self.prelude_stop_settings = [
+            #great.stops["PRINCIPAL_8"],
+            great.stops["GEMSHORN_8"],
+            great.stops["OCTAVA_4"],
+            great.stops["SWELL_TO_GREAT"],
+            swell.stops["GEIGEN_DIAPASON_8"],
+            swell.stops["PRINCIPAL_4"],
+            swell.stops["BOURDON_8"],
+            swell.stops["FLUTE_TRAVERSIERE_4"],
+            pedal.stops["PRINCIPAL_16"],
+            pedal.stops["SUBBASS_16"],
+            pedal.stops["BOURDON_8"]
+        ]
+        self.grand_symphony_stop_settings = [
+            great.stops["VIOLONE_16"],
+            great.stops["PRINCIPAL_8"],
+            great.stops["GEMSHORN_8"],
+            great.stops["OCTAVA_4"],
+            swell.stops["GEIGEN_DIAPASON_8"],
+            swell.stops["NASAT_2_2_3"],
+            swell.stops["HAUTBOIS_8"],
+            great.stops["SWELL_TO_GREAT"],
+            pedal.stops["SUBBASS_16"],
+            pedal.stops["CHORAL_BASS_4"],
+            pedal.stops["OCTAVA_8"],
+        ]
+        
+        self.choir_serenade_stop_settings = [
+            choir.stops["SPITZ_PRINCIPAL_8"],
+            choir.stops["UNDA_MARIS_II_8"],
+            choir.stops["SPITZFLOTE_4"],
+            great.stops["PRINCIPAL_8"],
+            great.stops["OCTAVA_4"],
+            great.stops["CHOIR_TO_GREAT"],
+            pedal.stops["SUBBASS_16"],
+            pedal.stops["CHORAL_BASS_4"],
+            pedal.stops["OCTAVA_8"],
+        ]
+
+        self.baroque_brilliance_stop_settings = [
+            great.stops["PRINCIPAL_8"],
+            great.stops["QUINTE_2_2_3"],
+            great.stops["MIXTUR_IV"],
+            swell.stops["GEIGEN_DIAPASON_8"],
+            swell.stops["NASAT_2_2_3"],
+            swell.stops["HAUTBOIS_8"],
+            pedal.stops["SWELL_TO_PEDAL"],
+            pedal.stops["SUBBASS_16"],
+            pedal.stops["CHORAL_BASS_4"],
+            pedal.stops["OCTAVA_8"],
+        ]
+
+        self.celestial_strings_stop_settings = [
+            great.stops["VIOLONE_16"],
+            great.stops["GEMSHORN_8"],
+            great.stops["GEDACKT_8"],
+            swell.stops["VIOLA_CELESTE_II_8"],
+            swell.stops["FLUTE_TRAVERSIERE_4"],
+            great.stops["SWELL_TO_GREAT"],
+            pedal.stops["SUBBASS_16"],
+            pedal.stops["CHORAL_BASS_4"],
+            pedal.stops["OCTAVA_8"],
+        ]
+
+        self.majestic_mix_stop_settings = [
+            great.stops["VIOLONE_16"],
+            great.stops["PRINCIPAL_8"],
+            great.stops["MIXTUR_IV"],
+            great.stops["TRUMPET_8"],
+            swell.stops["GEIGEN_DIAPASON_8"],
+            swell.stops["NASAT_2_2_3"],
+            swell.stops["PICCOLO_2"],
+            swell.stops["TIERCE_1_3_5"],
+            pedal.stops["SWELL_TO_PEDAL"],
+            pedal.stops["SUBBASS_16"],
+            pedal.stops["POSAUNE_16"],
+            pedal.stops["OCTAVA_8"],
         ]
 
 
-    def get_default_stops_and_channels(self):
-        return self.stop_settings, self.channel1, self.channel2, self.channel3
-    
-    def get_default_stops(self):
-        return self.stop_settings
+    def get_default_stops(self, preset):
+        if preset == "default":
+            return self.default_stop_settings
+        elif preset == "intro":
+            return self.intro_stop_settings
+        elif preset == "prelude":
+            return self.prelude_stop_settings
+        elif preset == "g1":
+            return self.grand_symphony_stop_settings
+        elif preset == "g2":
+            return self.choir_serenade_stop_settings
+        elif preset == "g3":
+            return self.baroque_brilliance_stop_settings
+        elif preset == "g4":
+            return self.celestial_strings_stop_settings
+        elif preset == "g5":
+            return self.majestic_mix_stop_settings
+        else:
+            return self.default_stop_settings
         
-
 program_change_dict = {}
 program_changes = '''1	Acoustic Grand Piano
 2	Bright Acoustic Piano

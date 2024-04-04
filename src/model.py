@@ -6,22 +6,22 @@ import multiprocessing
 import os
 import sys
 import time
-from tkinter import Checkbutton, IntVar
 import concurrent.futures
-from mido import tick2second
 import mido
 import mido.backends.rtmidi
-from Stops2 import Stop, get_sysex, program_change_dict
+import shutil
+from config import kind_to_folder
+from Stops2 import *
 
 if hasattr(sys, '_MEIPASS'):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
     BASE_DIR = os.path.dirname(__file__)
 
-PLAYLISTSAVESPATH = os.path.join(BASE_DIR, 'PlaylistSaves')
-HYMNPATH = os.path.join(BASE_DIR, "Hymns")
-LITURGYPATH = os.path.join(BASE_DIR, "Liturgy")
-PSALMNOTESPATH = os.path.join(BASE_DIR, "PsalmNotes")
+#pylint: disable=line-too-long
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
 
 class PlaylistHymn:
     """
@@ -57,6 +57,7 @@ class PlaylistHymn:
         self.bpm = bpm
         self.new_bpm = bpm if new_bpm == 0 else new_bpm
         self.abbreviated_titles = abbreviated_titles
+        self.is_prelude = False
 
     @classmethod
     def from_library_hymn(cls, library_hymn):
@@ -76,13 +77,13 @@ class PlaylistHymn:
             kind=library_hymn.kind,
             is_hymn=library_hymn.is_hymn,
             markers=library_hymn.markers,
-            selected_markers=library_hymn.selected_markers,
+            # selected_markers=library_hymn.selected_markers,
             track_channels=library_hymn.track_channels,
             track_names=library_hymn.track_names,
             time_signature=library_hymn.time_signature,
             bpm=library_hymn.bpm,
             new_bpm=library_hymn.new_bpm,
-            abbreviated_titles=library_hymn.abbreviated_titles
+            # abbreviated_titles=library_hymn.abbreviated_titles
         )
 
     def to_dict(self, index):
@@ -134,7 +135,7 @@ class PlaylistHymn:
         return PlaylistHymn(
             title=dictionary['title'],
             hymn_number=dictionary['hymn_number'],
-            path=dictionary['path'],
+            path = dictionary['path'] if os.path.isfile(dictionary['path']) else None,
             kind=dictionary['kind'],
             is_hymn=dictionary['is_hymn'],
             markers=markers,
@@ -243,11 +244,12 @@ class Marker:
         stops (list): List of stops.
     """
 
-    def __init__(self, title, start_time, stop_time=0, stops=None):
+    def __init__(self, title, start_time, stop_time=0, stops=None, is_selected=True):
         self.title = title
         self.start_time = start_time
         self.stop_time = stop_time
         self.stops = [Stop(**stop) if isinstance(stop, dict) else stop for stop in (stops or [])]
+        self.is_selected = is_selected
 
     def get_short_title(self):
         """
@@ -269,53 +271,9 @@ class Marker:
             "title": self.title,
             "start_time": self.start_time,
             "stop_time": self.stop_time,
-            "stops": [stop.to_dict() if isinstance(stop, Stop) else stop for stop in self.stops]
+            "stops": [stop.to_dict() if isinstance(stop, Stop) else stop for stop in self.stops],
+            'is_selected': self.is_selected
         }
-
-class ChoiceCollection:
-    """
-    Represents a collection of choices.
-
-    Attributes:
-        choices (list): List of choices.
-        selectedParts (list): List of selected parts.
-    """
-
-    def __init__(self):
-        self.choices = []
-        self.selectedParts = []
-
-class Choice:
-    """
-    Represents a choice.
-
-    Attributes:
-        text (str): The text of the choice.
-        state (IntVar): The state of the choice.
-        data (object): The data associated with the choice.
-        collection (ChoiceCollection): The collection to which the choice belongs.
-        checkbutton (Checkbutton): The checkbutton widget representing the choice.
-    """
-
-    def __init__(self, location, item, collection):
-        self.text = item.title
-        self.state = IntVar()
-        self.data = item
-        self.collection = collection
-        self.checkbutton = Checkbutton(location, text=self.text, command=self.check,
-                                        variable=self.state, onvalue=1, offvalue=0, anchor='w')
-        self.checkbutton.pack(fill='x')
-        collection.choices.append(self)
-
-    def check(self):
-        """
-        Handles the check event of the choice.
-        """
-        state = self.state.get()
-        if state == 1:
-            self.collection.selectedParts.append(self.data)
-        if state == 0:
-            self.collection.selectedParts.remove(self.data)
 
 class OrganPlayerModel:
     """
@@ -350,12 +308,13 @@ class OrganPlayerModel:
             str: MIDI device name.
         """
         midi_devices = mido.get_output_names()
-        if '2- UM-ONE 1' in midi_devices:
-            return '2- UM-ONE 1'
-        elif 'loopMIDI Port 1' in midi_devices:
-            return 'loopMIDI Port 1'
-        else:
-            return None
+        for device in midi_devices:
+            if "UM-ONE" in device:
+                return device
+        for device in midi_devices:
+            if "loopMIDI" in device:
+                return device
+        return None
 
     def get_midi_devices(self):
         """
@@ -374,6 +333,40 @@ class OrganPlayerModel:
             device (str): MIDI device name.
         """
         self.midi_device = device
+
+    def update_library_hymn(self, hymn):
+        """
+        Updates the library hymn.
+
+        Args:
+            hymn (LibraryHymn): The library hymn.
+        """
+        self.library[f"{hymn.hymn_number}-{hymn.title}"] = hymn
+        self.save_cache(os.path.join(BASE_DIR, "cache.json"), self.library)
+
+    def clear_playlist(self):
+        """
+        Clears the playlist.
+        """
+        self.playlist = {}
+
+    def remove_from_playlist(self, hymn):
+        """
+        Removes the hymn from the playlist.
+
+        Args:
+            hymn (PlaylistHymn): The playlist hymn.
+        """
+        self.playlist.pop(f"{hymn.hymn_number}-{hymn.title}-{hymn.abbreviated_titles}")
+
+    def edit_playlist_item(self, hymn, index):
+        """
+        Edits the playlist item.
+
+        Args:
+            hymn (PlaylistHymn): The playlist item.
+        """
+        self.playlist[f"{hymn.hymn_number}-{hymn.title}-{hymn.abbreviated_titles}"] = hymn
 
     def load_playlist(self, filename):
         """
@@ -476,7 +469,7 @@ class OrganPlayerModel:
         Returns:
             mido.MidiOutput: MIDI output object.
         """
-        return mido.open_output(midi_device)
+        return mido.open_output(midi_device, autoreset=True)
 
     def reset_midi_output(self, outport):
         """
@@ -485,7 +478,11 @@ class OrganPlayerModel:
         Args:
             outport (mido.MidiOutput): MIDI output object.
         """
-        outport.reset()
+        print("Resetting MIDI output")
+
+        for channel in range(11, 15):
+            for note in range(0, 128):
+                outport.send(mido.Message('note_off', channel=channel, note=note, velocity=0, time=0))
 
     def close_midi_output(self, outport):
         """
@@ -520,11 +517,12 @@ class OrganPlayerModel:
         if outport is None:
             midi_device = self.get_midi_device()
             # Open the MIDI port
-            outport = mido.open_output(midi_device)
-            # Send the message
-            outport.send(msg)
-            # Close the MIDI port
-            outport.close()
+            if midi_device != None:
+                outport = mido.open_output(midi_device)
+                # Send the message
+                outport.send(msg)
+                # Close the MIDI port
+                outport.close()
         else:
             outport.send(msg)
 
@@ -551,15 +549,9 @@ class OrganPlayerModel:
                     cache[kind] = {}
                 cache[kind][key] = hymn
 
-        kind_to_path = {
-            "Hymn": HYMNPATH,
-            "DivineService": LITURGYPATH,
-            "PsalmNotes": PSALMNOTESPATH
-        }
-
         files_to_process = []
 
-        for kind, midi_path in kind_to_path.items():
+        for kind, midi_path in kind_to_folder.items():
             if kind not in cache:
                 cache[kind] = {}
             if not os.path.exists(midi_path):
@@ -567,7 +559,7 @@ class OrganPlayerModel:
             midi_files = []
             for entry in os.scandir(midi_path):
                 if entry.is_file() and entry.name.endswith('.mid'):
-                    relative_path = os.path.join(".", os.path.relpath(os.path.join(midi_path, entry.name), BASE_DIR))
+                    relative_path = os.path.relpath(os.path.join(midi_path, entry.name), BASE_DIR)
                     midi_files.append((relative_path, kind))
             midi_files = [(midi_file, kind) for midi_file, kind in midi_files if not any(midi_file == hymn['path'] for hymn in cache[kind].values())]
             files_to_process.extend(midi_files)
@@ -587,6 +579,7 @@ class OrganPlayerModel:
         for kind_hymns in cache.values():
             for hymn in kind_hymns.values():
                 hymn = LibraryHymn.dict_to_hymn(hymn)
+                print(hymn.path)
                 self.library[f"{hymn.hymn_number}-{hymn.title}"] = hymn
         self.save_cache(os.path.join(BASE_DIR, "cache.json"), self.library)
         end_time = time.time()
@@ -594,6 +587,39 @@ class OrganPlayerModel:
 
         print(f"The function took {execution_time} seconds to run.")
         return self.library
+    
+    def add_hymn_to_library(self, hymn):
+        """
+        Adds the hymn to the library.
+
+        Args:
+            hymn (LibraryHymn): The library hymn.
+        """
+
+        designated_folder = kind_to_folder.get(hymn.kind, kind_to_folder["Other"])
+        
+        self.update_hymn_name(hymn)
+
+        new_path = shutil.move(hymn.path, designated_folder)
+        new_name = f"{hymn.hymn_number} {hymn.title}{os.path.splitext(new_path)[1]}"
+        final_path = os.path.join(designated_folder, new_name)
+        os.rename(new_path, final_path)
+        
+        # Update the path of the hymn
+        hymn.path = os.path.relpath(final_path, BASE_DIR)
+        
+        self.library[f"{hymn.hymn_number}-{hymn.title}"] = hymn
+        self.save_cache(os.path.join(BASE_DIR, "cache.json"), self.library)
+
+    def update_hymn_name(self, hymn):
+        midi = mido.MidiFile(hymn.path)
+        for msg in midi.tracks[0]:
+            if msg.type == 'track_name':
+                msg.name = f"{hymn.hymn_number} {hymn.title}"
+                return
+        msg = mido.MetaMessage('track_name', name=f"{hymn.hymn_number} {hymn.title}", time=0)
+        midi.tracks[0].insert(0, msg)
+        midi.save(hymn.path)
 
     def scan_for_markers(self, midi_file):
         """
@@ -618,7 +644,7 @@ class OrganPlayerModel:
             tempo = 500000
             for msg in midi.tracks[0]:
                 if msg.time > 0:
-                    delta = tick2second(msg.time, midi.ticks_per_beat, tempo)
+                    delta = mido.tick2second(msg.time, midi.ticks_per_beat, tempo)
                 else:
                     delta = 0
                 accumulated_time += delta
@@ -652,18 +678,22 @@ class OrganPlayerModel:
 
             # # initialize all known tracks with notes
             channel_instrument = {}
+            channel = 0
             for track in midi.tracks:
                 for msg in track:
                     if msg.type == "note_on":
-                        channel_instrument[int(msg.channel + 1)] = f"Track {msg.channel + 1}"
+                        channel_instrument[channel] = f"Track {channel}"
                         break
+                channel += 1
 
-            # Check for Program Changes
-            for msg in mido.merge_tracks(midi.tracks):
-                if msg.type == "program_change":
-                    channel_instrument[int(msg.channel + 1)] = program_change_dict[msg.program + 1]
-                elif msg.type == "note_on":
-                    break
+            # # Check for Program Changes
+            # channel = 0
+            # for msg in mido.merge_tracks(midi.tracks):
+            #     if msg.type == "program_change":
+            #         channel_instrument[channel] = program_change_dict[msg.program + 1]
+            #     elif msg.type == "note_on":
+            #         break
+            #     channel += 1
 
         markers_dict_list = [marker.to_dict() for marker in markers_and_times]
         return title, number, key_signature, time_signature, bpm, markers_dict_list, channel_instrument
@@ -744,11 +774,12 @@ class OrganPlayerModel:
         return hymn
 
     def get_hymn_from_playlist(self, item):
-        hymn = self.playlist.get(f"{item[0]}-{item[1]}-{item[2]}")
-        return hymn
+        return self.playlist.get(f"{item[0]}-{item[1]}-{item[2]}")
+    
+    def convert_library_hymn_to_playlist_hymn(self, library_hymn):
+        return PlaylistHymn.from_library_hymn(library_hymn)
 
-    def add_to_playlist(self, hymn):
-        if hymn.is_hymn:
-            playlist_hymn = PlaylistHymn.from_library_hymn(hymn)
-            self.playlist[f"{hymn.hymn_number}-{hymn.title}-{hymn.abbreviated_titles}"] = playlist_hymn
+    def add_to_playlist(self, playlist_hymn):
+        if playlist_hymn.is_hymn:
+            self.playlist[f"{playlist_hymn.hymn_number}-{playlist_hymn.title}-{playlist_hymn.abbreviated_titles}"] = playlist_hymn
             return playlist_hymn

@@ -16,7 +16,6 @@ def main():
     # Start the Tkinter main loop
     view.start_mainloop()
 
-
 if __name__ == "__main__":
     multiprocessing.freeze_support()
     main()

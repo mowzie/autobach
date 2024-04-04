@@ -2,118 +2,86 @@
 import os
 import sys
 import tkinter as tk
-from tkinter import Checkbutton, IntVar, ttk
-from tkinter import font
+from tkinter import filedialog
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from natsort import natsorted
-from Stops2 import *
+from widgets import ScrolledTreeView, CreateToolTip, StopSelectionWindow, SongSelectionWindow
+from config import kind_to_folder
 
-PLAYLIST_TEXT_BG = "#343A40"
-PLAYLIST_TEXT = "#f8f9fa"
-LIBRARY_PARENT = "#ff7851"
-LIBRARY_SELECTED = "#e99002"
+
 if hasattr(sys, '_MEIPASS'):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
     BASE_DIR = os.path.dirname(__file__)
 
-class ScrolledTreeView(ttk.Treeview):
-    def __init__(self, parent, *args, **kwargs):
-        self.frame = tk.Frame(parent)  # Create a new frame to hold the Treeview and Scrollbar
-        style = ttk.Style()
-        style.map('Treeview',
-          background=[('selected', LIBRARY_SELECTED)],
-          foreground=[('selected', 'white')])
-        ttk.Treeview.__init__(self, self.frame, *args, **kwargs)  # Initialize the Treeview with the new frame as its parent
+#pylint: disable=line-too-long
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
 
-        self.vsb = ttk.Scrollbar(self.frame, orient="vertical", command=self.yview)  # Create the Scrollbar with the new frame as its parent
-        self.configure(yscrollcommand=self.vsb.set)
-        self.tag_configure("oddrow", background="white")
-        self.tag_configure("evenrow", background="lightgray")
-        self.tag_configure("parent", background=PLAYLIST_TEXT_BG, foreground=PLAYLIST_TEXT, font=("Helvetica", 10, "bold"),)
-        self.tag_configure("text", background=PLAYLIST_TEXT_BG, foreground=PLAYLIST_TEXT, font=("Helvetica", 10, "bold"))
-        self.vsb.pack(side="right", fill="y")  # Pack the Scrollbar into the frame
-        self.pack(side="left", fill="both", expand=True)  # Pack the Treeview into the frame
+class ImportSongWindow(tk.Toplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
 
-        self.frame.pack(fill='both', expand=True)  # Pack the frame into the parent widget
+        self.title("Import Song")
+        self.controller = parent.controller
+        self.parent = parent
+        hymn = self.select_song_to_import()
+        if hymn is None:
+            return
 
-    def destroy(self):
-        self.vsb.destroy()
-        ttk.Treeview.destroy(self)
-        self.frame.destroy()  # Destroy the frame when the ScrolledTreeView is destroyed
+        self.song_name_label = tk.Label(self, text="Song Name:")
+        self.song_name_entry = tk.Entry(self)
+        self.song_name_entry.insert(0, hymn.title)
+        self.song_name_label.pack()
+        self.song_name_entry.pack()
 
-class CreateToolTip(object):
-    """
-    create a tooltip for a given widget
-    """
-    def __init__(self, widget, text='widget info'):
-        self.waittime = 500     #miliseconds
-        self.wraplength = 180   #pixels
-        self.widget = widget
-        self.text = text
-        self.widget.bind("<Enter>", self.enter)
-        self.widget.bind("<Leave>", self.leave)
-        self.widget.bind("<ButtonPress>", self.leave)
-        self.id = None
-        self.tw = None
+        self.liturgy_label = tk.Label(self, text="If song is part of the liturgy, use abbreviation to mark which, such as DS3 for Divine Service 3")
+        self.liturgy_label.pack()
+        self.song_number_label = tk.Label(self, text="Hymn Number")
+        self.song_number_entry = tk.Entry(self)
+        self.song_number_entry.insert(0, hymn.hymn_number)
+        self.song_number_label.pack()
+        self.song_number_entry.pack()
 
-    def enter(self, event=None):
-        self.schedule()
+        self.track_name_label = tk.Label(self, text="Track Names:")
+        self.track_name_label.pack()
+        self.track_name_entries = []
+        for _, name in enumerate(hymn.track_names.values()):
+            entry = tk.Entry(self)
+            entry.insert(0, name)
+            entry.pack()
+            self.track_name_entries.append(entry)
 
-    def leave(self, event=None):
-        self.unschedule()
-        self.hidetip()
+        self.classification_label = tk.Label(self, text="Classification:")
+        self.classification_combobox = ttk.Combobox(self, values=list(kind_to_folder.keys()))
+        self.classification_label.pack()
+        self.classification_combobox.pack()
 
-    def schedule(self):
-        self.unschedule()
-        self.id = self.widget.after(self.waittime, self.showtip)
+        self.import_button = ttk.Button(self, text="Import", command=lambda:self.import_song(hymn))
+        self.import_button.pack()
 
-    def unschedule(self):
-        task_id = self.id
-        self.id = None
-        if task_id:
-            self.widget.after_cancel(task_id)
-
-    def showtip(self, event=None):
-        x = y = 0
-        x, y, _, _ = self.widget.bbox("insert")
-        x += self.widget.winfo_rootx() + 25
-        y += self.widget.winfo_rooty() + 20
-        # creates a toplevel window
-        self.hidetip()
-        self.tw = tk.Toplevel(self.widget)
-        # Leaves only the label and removes the app window
-        self.tw.wm_overrideredirect(True)
-        self.tw.wm_geometry("+%d+%d" % (x, y))
-        label = ttk.Label(self.tw, text=self.text, background="#ffffe0", relief="solid", borderwidth=1,
-                        font=("Arial", "10", "italic"), wraplength=200)
-        label.pack(ipadx=1)
-
-    def hidetip(self):
-        tw = self.tw
-        self.tw= None
-        if tw:
-            tw.destroy()
+    def select_song_to_import(self):
+        file_path = filedialog.askopenfilename()
+        if file_path:
+            _, _ , hymn, _ = self.controller.load_song(file_path)
+            return hymn
 
 
-class Choice:
-    def __init__(self, location, marker, selected_sections):
-        self.text = marker.title
-        self.state = IntVar(value=1)
-        self.data = marker
-        self.selected_sections = selected_sections
-        self.checkbutton = Checkbutton(location, text=self.text, command=self.check,
-                                        variable=self.state, onvalue=1, offvalue=0, anchor='w')
-        self.checkbutton.pack()
-        self.check()
+    def import_song(self, hymn):
+        song_number = self.song_number_entry.get()
+        song_name = self.song_name_entry.get()
+        track_names = {i+1: entry.get() for i, entry in enumerate(self.track_name_entries)}
+        classification = self.classification_combobox.get()
+        hymn.hymn_number = song_number
+        hymn.title = song_name
+        hymn.track_names = track_names
+        hymn.kind = classification
+        self.controller.add_hymn_to_library(hymn)
+        self.parent.add_hymn_to_library(0, hymn)
+        self.destroy()
 
-    def check(self):
-        state = self.state.get()
-        if state == 1:
-            self.selected_sections.append(self.data)
-        if state == 0:
-            self.selected_sections.remove(self.data)
 
 class LibraryWindow(tk.Toplevel):
     def __init__(self, parent, controller):
@@ -124,8 +92,10 @@ class LibraryWindow(tk.Toplevel):
         self.submit_button = None
         self.cancel_button = None
 
+        self.parent_items = {}
+
         self.title("Library")
-        self.geometry("500x500")
+        self.geometry("500x800")
 
         container = ttk.Frame(self)
         container.pack(side="top", fill="both",padx=10, pady=10, expand=True)
@@ -137,28 +107,75 @@ class LibraryWindow(tk.Toplevel):
         self.library_treeview.heading("Number", text="#", command=lambda: self.treeview_sort_column("Number", False))
         self.library_treeview.heading("Title", text="Title", command=lambda: self.treeview_sort_column("Title", False))
         self.library_treeview.heading("Kind", text="Kind", command=lambda: self.treeview_sort_column("Kind", False))
-        self.library_treeview.heading("Key", text="Key", command=lambda: self.treeview_sort_column("Key", False))  # New column
+        #self.library_treeview.heading("Key", text="Key", command=lambda: self.treeview_sort_column("Key", False))  # New column
         self.library_treeview.heading("TimeSignature", text="Time Signature", command=lambda: self.treeview_sort_column("TimeSignature", False))  # New column
         self.library_treeview.column("Number", width=40, stretch="no")
         self.library_treeview.column("Title", stretch="yes", anchor="w")
         self.library_treeview.column("ParentTitle", width = 0, anchor="w")  # Text centered in column "ParentTitle"
         self.library_treeview.column("Kind", width = 50, stretch="no")
-        self.library_treeview.column("Key", width = 40, stretch="no")  # New column
+     #   self.library_treeview.column("Key", width = 40, stretch="no")  # New column
         self.library_treeview.column("TimeSignature", width=40, stretch="no")  # New column
         self.library_treeview.column("#0", width=0, stretch="no")
-        self.library_treeview["displaycolumns"] = ("Number", "Title", "ParentTitle", "Kind", "Key")  # Include new columns
+        self.library_treeview["displaycolumns"] = ("Number", "Title", "ParentTitle", "Kind")  # Include new columns
+        self.filter_label = tk.Label(self, text="Filter Text")
+        self.filter_entry = ttk.Entry(self, width=50)
+        self.filter_entry.bind('<KeyRelease>', self.filter_treeview)
         self.add_button = ttk.Button(self, text="Add to Playlist", command=self.add_to_playlist)
-        self.edit_button = ttk.Button(self, text="Edit Song",  state=tk.DISABLED)
+        self.edit_button = ttk.Button(self, text="Edit Song Defaults", command=self.edit_song)
         self.progress = ttk.Progressbar(container, orient="horizontal", length=200, mode="determinate")
         self.progress.place(relx=0.5, rely=0.45, anchor='center')
         self.library_treeview.bind("<Double-1>", lambda e: self.add_to_playlist())
         self.loading_label = tk.Label(container, text="Refreshing library...")
         self.loading_label.place(relx=0.5, rely=0.5, anchor='center')
-
+        self.menu_bar = tk.Menu(self)
+        self.filemenu = tk.Menu(self.menu_bar, tearoff=0)
+        self.menu_bar.add_cascade(label="File", menu=self.filemenu)
+        self.config(menu=self.menu_bar)
+      #  self.filemenu.add_command(label="Refresh Library", command=self.refresh_library)
+        self.filemenu.add_command(label="Import Song", command=self.import_song)
 
         self.controller.load_library_files(reloadCache=False, total_files_callback=self.set_total_files, update_progress_callback=self.update_progress)
         self.withdraw()  # Hide the window until the library is loaded
-        self.protocol('WM_DELETE_WINDOW', self.hide) 
+        self.protocol('WM_DELETE_WINDOW', self.hide)
+        
+    def import_song(self):
+        self.import_song_window = ImportSongWindow(self)
+
+    def filter_treeview(self, event=None):
+        phrase = self.filter_entry.get()
+        for i in self.library_treeview.get_children():
+            self.library_treeview.delete(i)
+        hymn_list = {}
+        for hymn in self.controller.get_library().values():
+            if phrase.lower() in hymn.title.lower() or phrase.lower() in hymn.hymn_number.lower():
+                hymn_list[f"{hymn.hymn_number}-{hymn.title}"] = hymn
+        self.update_library_view(hymn_list)
+
+    def edit_song(self):
+        selected_item = self.library_treeview.selection()
+        if selected_item:
+            selected_item_id = selected_item[0]
+            values = self.library_treeview.item(selected_item, "values")
+            hymn = self.controller.get_hymn_from_library(values)
+            if hymn is None:
+                return
+            song_selection_window = SongSelectionWindow(self.master, self.controller, hymn, "library_edit")
+            updated_hymn = song_selection_window.onClose()
+            if updated_hymn is not None:
+                self.controller.update_library_hymn(updated_hymn, selected_item_id)
+
+    def add_to_playlist(self):
+        selected_item = self.library_treeview.selection()
+        if selected_item:
+            values = self.library_treeview.item(selected_item, "values")
+            hymn = self.controller.get_hymn_from_library_to_playlist(values)
+            if hymn is None:
+                return
+        #make the change here
+        song_selection_window = SongSelectionWindow(self.master, self.controller, hymn, "add_to_playlist")
+        hymn = song_selection_window.onClose()
+        if hymn is not None:
+            self.controller.add_to_playlist(hymn)
 
     def set_total_files(self, total):
         self.progress['maximum'] = total
@@ -168,7 +185,10 @@ class LibraryWindow(tk.Toplevel):
         self.update_idletasks()
 
     def show_library_frame(self):
+        self.treeview_sort_column("Number", False)
         self.library_frame.pack(side=tk.LEFT, fill="both", expand=True)
+        self.filter_label.pack(side=tk.TOP, fill="x", expand=False)
+        self.filter_entry.pack(side=tk.TOP, fill="x", expand=False, pady=(0, 20))
         self.add_button.pack(side=tk.RIGHT, padx=(0, 40), pady=(0, 20))
         self.edit_button.pack(side=tk.RIGHT, padx=(0, 40), pady=(0, 20))
         self.loading_label.destroy()
@@ -199,187 +219,30 @@ class LibraryWindow(tk.Toplevel):
         self.loading_label.pack()
 
     def update_library_view(self, hymns):
-        parent_items = {}
         for i, hymn in enumerate(hymns.values()):
+            self.add_hymn_to_library(i, hymn)
+
+
+    def add_hymn_to_library(self, i, hymn):
+        if hymn.path:
             tag = "oddrow" if i % 2 else "evenrow"
-            if hymn.kind == "DivineService":
-                if hymn.hymn_number not in parent_items:
-                    parent_items[hymn.hymn_number] = self.library_treeview.insert("", "end", values=("",  f"{hymn.hymn_number}", "", "", "", ""), tags=("parent",))
-                    self.library_treeview.item(parent_items[hymn.hymn_number], open=True)
-                    self.library_treeview.insert(parent_items[hymn.hymn_number], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"  ), tags=(tag,))
-                else:
-                    self.library_treeview.insert(parent_items[hymn.hymn_number], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
+        else:
+            tag = "notFound"
+
+        if hymn.kind == "DivineService":
+            if hymn.hymn_number not in self.parent_items:
+                self.parent_items[hymn.hymn_number] = self.library_treeview.insert("", "end", values=("",  f"{hymn.hymn_number}", "", "", "", ""), tags=("parent",))
+                self.library_treeview.item(self.parent_items[hymn.hymn_number], open=True)
+                self.library_treeview.insert(self.parent_items[hymn.hymn_number], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"  ), tags=(tag,))
             else:
-                if hymn.kind not in parent_items:
-                    parent_items[hymn.kind] = self.library_treeview.insert("", "end", values=("", f"{hymn.kind}", "", "", "", ""), tags=("parent",))
-                    self.library_treeview.item(parent_items[hymn.kind], open=True)
-                    self.library_treeview.insert(parent_items[hymn.kind], "end", values=(hymn.hymn_number, hymn.title, "",  hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
-                else:
-                    self.library_treeview.insert(parent_items[hymn.kind], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
-    def add_to_playlist(self):
-        selected_item = self.library_treeview.selection()
-        if selected_item:
-            values = self.library_treeview.item(selected_item, "values")
-            hymn = self.controller.get_hymn_from_library(values)
-            if hymn is None:
-                return    
-            # Create a new window
-            new_window = tk.Toplevel(self)
-            new_window.title("Select Options")
-            container = tk.Frame(new_window)
-            container.pack(side="top", fill="both", expand=True)
-            container.grid_rowconfigure(0, weight=1)
-            container.grid_columnconfigure(0, weight=1)
-            container.grid_columnconfigure(1, weight=1)
-            left_frame = tk.Frame(container)
-            left_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-            right_frame = tk.Frame(container)
-            right_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
-
-            # Create a dictionary to store the checkboxes
-            self.selected_sections = []
-
-            # For each marker, create a checkbox and add it to the new window
-            for marker in hymn.markers:
-                Choice(left_frame, marker, self.selected_sections)
-
-            # Create a dictionary to store the OptionMenus
-            track_channels = {}
-
-            # Get the channel names and values
-            channel_names = [channel.name for channel in Channels]
-
-            # For each track, create a label and an OptionMenu and add them to the new window
-            for i, (channel, instrument)  in enumerate(hymn.track_names.items()):
-                channel = int(channel)
-                # Create a label for the track
-                track_label = tk.Label(right_frame, text=instrument)
-                track_label.grid(row=i, column=2, sticky="w")
-
-                # Create an OptionMenu for the track                  
-                channel_var = tk.StringVar(value=channel_names[i % len(channel_names)])
-                channel_menu = tk.OptionMenu(right_frame, channel_var, *channel_names)
-                channel_menu.grid(row=i, column=3, sticky="w")
-
-                # Store the OptionMenu in the dictionary
-                track_channels[channel] = channel_var
-            button_frame = tk.Frame(container)
-            button_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
-            # Add a checkbox to use default organ stops for marker sections
-            self.use_default_stops = tk.BooleanVar(value=True)
-
-            default_checkbutton = tk.Checkbutton(button_frame, text="Use Default Stops", variable=self.use_default_stops)
-            default_checkbutton.pack()
-            # Add a label for the bpm
-            bpm_label = tk.Label(right_frame, text="bpm")
-            bpm_label.grid(row=len(hymn.track_names), column=2, sticky="w")
-
-            # Add an entry for the bpm
-            self.use_default_bpm = tk.BooleanVar(value=False)
-            self.bpm_var = tk.StringVar(value = int(hymn.new_bpm))
-            bpm_entry = tk.Entry(right_frame, textvariable=self.bpm_var)
-            bpm_entry.grid(row=len(hymn.track_names), column=3, sticky="w")
-            default_bpm_checkbutton = tk.Checkbutton(right_frame, text="Use Default BPM", variable=self.use_default_bpm, command=lambda: self.toggle_bpm_entry(hymn))
-
-            default_bpm_checkbutton.grid(row=len(hymn.track_names)+1, column=3, sticky="w")
-
-            if (hymn.new_bpm == hymn.bpm):
-                default_bpm_checkbutton['state'] = tk.DISABLED
-
-            self.bpm_var.trace("w", lambda *args: self.on_bpm_var_change(hymn, self.bpm_var, default_bpm_checkbutton))
-
-            # Add a submit button to the new window
-            submit_button = tk.Button(button_frame, text="Submit", command=lambda: self.submit(new_window, track_channels, hymn))
-            cancel_button = tk.Button(button_frame, text="Cancel", command=lambda: new_window.destroy())
-            submit_button.pack()
-            cancel_button.pack()
-            new_window.bind('<Escape>', lambda event: new_window.destroy())
-
-        # Define the function to be called when the value of the StringVar changes
-    def on_bpm_var_change(self, hymn, bpm_var, default_bpm_checkbutton):
-        if bpm_var.get() != hymn.bpm:
-            default_bpm_checkbutton['state'] = tk.NORMAL
-
-    def toggle_bpm_entry(self, hymn):
-        assert isinstance(self.use_default_bpm, tk.BooleanVar), "self.use_default_bpm is not initialized"
-        assert isinstance(self.bpm_var, tk.StringVar), "self.bpm_var is not initialized"
-        assert hymn is not None, "hymn is None"
-        assert hymn.bpm is not None, "hymn.bpm is None"
-        assert hymn.new_bpm is not None, "hymn.new_bpm is None"
-
-        if self.use_default_bpm.get():
-            self.bpm_var.set(int(hymn.bpm))
+                self.library_treeview.insert(self.parent_items[hymn.hymn_number], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
         else:
-            self.bpm_var.set(int(hymn.new_bpm))
-
-    def submit(self, new_window, track_channels, hymn):
-        default_stops = self.controller.get_default_stops()
-
-        if self.use_default_stops.get():
-            for section in self.selected_sections:
-                section.stops = default_stops
-        else:
-            for section in self.selected_sections:
-                # Show a new window to select the stops for this section
-                self.show_stop_selection_window(section)
-                if self.selected_stops is not None:
-                    section.stops = self.selected_stops
-                else:
-                    section.stops = default_stops
-        hymn.selected_markers = self.selected_sections
-        hymn.new_bpm = self.bpm_var.get()
-        for channel in hymn.track_names.keys():
-            channel_name = track_channels[int(channel)].get()
-            channel_enum = Channels[channel_name]  # Convert the string back to the enum
-            hymn.track_names[channel] = int(channel_enum.value)  # Get the integer part of the enum
-
-        self.controller.add_to_playlist(hymn)
-        new_window.destroy()
-
-    def show_stop_selection_window(self, section):
-        # Create a new window to select the stops for the section
-        self.stop_selection_window = tk.Toplevel(self)
-        self.stop_selection_window.title(f"Select stops for {section.title}")
-
-        self.stop_buttons = []
-        my_font = font.Font(family='Helvetica', size=12, weight='bold')
-        self.selected_stops = []
-        max_rows = 0
-        for row, (_, manual) in enumerate(manuals.items()):
-            max_rows = max_rows + 1
-            buttons = []
-            for column, (_, stop) in enumerate(manual.stops.items()):
-                color = "#8B0000" if stop.stop_type == StopType.REED else "black"
-                button = tk.Button(self.stop_selection_window, text=stop.label_text, bg="gray", fg=color, width=10, height=5, font=my_font)
-                button.config(command=lambda btn=button, stp=stop: self.update_stop(stp, btn))
-                button.grid(row=row, column=column, sticky="w")
-                buttons.append(button)
-            self.stop_buttons.append(buttons)
-
-        self.submit_button = tk.Button(self.stop_selection_window, text="Submit", command=self.submit_stops)
-        self.cancel_button = tk.Button(self.stop_selection_window, text="Cancel", command=self.cancel_stops)
-        self.submit_button.grid(row=max_rows + 3, columnspan=len(self.stop_buttons))
-        #self.update_stop_selection_columns()
-        self.wait_window(self.stop_selection_window)
-
-    def update_stop(self, stop, button):
-        if button['bg'] == "gray":
-            button['bg'] = "white"
-            stop.is_engaged = True
-            self.selected_stops.append(stop)
-        else:
-            button['bg'] = "gray"
-            stop.is_engaged = False
-            self.selected_stops.remove(stop)
-
-
-    def submit_stops(self):
-        # Do something with selected_stops
-        self.stop_selection_window.destroy()
-
-    def cancel_stops(self, new_window):
-        self.selected_stops = self.controller.get_default_stops()
-        new_window.destroy()
+            if hymn.kind not in self.parent_items:
+                self.parent_items[hymn.kind] = self.library_treeview.insert("", "end", values=("", f"{hymn.kind}", "", "", "", ""), tags=("parent",))
+                self.library_treeview.item(self.parent_items[hymn.kind], open=True)
+                self.library_treeview.insert(self.parent_items[hymn.kind], "end", values=(hymn.hymn_number, hymn.title, "",  hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
+            else:
+                self.library_treeview.insert(self.parent_items[hymn.kind], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
 
 
 class OrganPlayerView(tk.Tk):
@@ -401,7 +264,7 @@ class OrganPlayerView(tk.Tk):
         default_font.configure(family="Helvetica", size=12)
         self.option_add("*Font", default_font)
         self.minsize(120, 450)
-        self.maxsize(1604, 1248)
+        self.maxsize(1024, 600)
         self.resizable(0,  0)
         icon_path = os.path.join(BASE_DIR, 'images', 'organ.ico')
         self.iconbitmap(icon_path)
@@ -409,7 +272,7 @@ class OrganPlayerView(tk.Tk):
         self.configure(relief="ridge")
 
         container = tk.Frame(self)
-        container.pack(side="top", fill="both", expand=True)
+        container.pack(side="top", fill="both", expand=True, padx=10)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
         container.grid_columnconfigure(1, weight=1)
@@ -432,16 +295,16 @@ class OrganPlayerView(tk.Tk):
 
         # Create a new frame for the buttons
         self.button_frame = tk.Frame(container)
-        self.button_frame.grid(row=0, column=1, sticky="nsew")
+        self.button_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        self.button_frame.master.columnconfigure(1, minsize=190, weight=1)
 
         # Create the buttons
-        self.add_button = ttk.Button(self.button_frame, text="Add to Playlist",  command=self.show_library_window)
+        self.add_button = ttk.Button(self.button_frame, text="Show Library",  command=self.show_library_window)
         self.add_text = ttk.Button(self.button_frame, text="Add Text", command=self.show_seperator_window)
         self.remove_button = ttk.Button(self.button_frame, text="Remove from Playlist", command=self.remove_from_playlist)
-        self.edit_button = ttk.Button(self.button_frame, text="Edit Song", state=tk.DISABLED)
+        self.edit_button = ttk.Button(self.button_frame, text="Edit Song", command=self.edit_playlist_item)
         self.move_up_button = ttk.Button(self.button_frame, text="Move Item Up", command=self.move_up)
         self.move_down_button = ttk.Button(self.button_frame, text="Move Item Down", command=self.move_down)
-
 
         # # Add the buttons to the frame
         for i in range(10):
@@ -449,20 +312,20 @@ class OrganPlayerView(tk.Tk):
 
         # Add the buttons to the frame
         self.add_button.grid(row=1, column=0, sticky="nsew", pady=(28, 3))
-        CreateToolTip(self.add_button, "Add a song to the playlist")
+        CreateToolTip(self.add_button, "Show library to add songs to the playlist")
         self.remove_button.grid(row=2, column=0, sticky="nsew", pady=3)
         CreateToolTip(self.remove_button, "Remove a song from the playlist")
         self.add_text.grid(row=3, column=0, sticky="nsew", pady=3)
         CreateToolTip(self.add_text, "Add a text seperator to the playlist")
         self.edit_button.grid(row=4, column=0, sticky="nsew", pady=3)
-        CreateToolTip(self.edit_button, "Edit a song in the playlist")
+        CreateToolTip(self.edit_button, "Edit a song in the playlist, this only changes the song for this playlist")
         self.move_up_button.grid(row=5, column=0, sticky="nsew", pady=3)
         CreateToolTip(self.move_up_button, "Move a song up in the playlist")
         self.move_down_button.grid(row=6, column=0, sticky="nsew", pady=3)
         CreateToolTip(self.move_down_button, "Move a song down in the playlist")
 
         self.right_frame = tk.Frame(container)
-        self.right_frame.grid(row=0, column=2, sticky="nsew", padx=10, pady=20)
+        self.right_frame.grid(row=0, column=2, columnspan=2, sticky="nsew", padx=10, pady=20)
         #extra space
         self.right_frame.grid_rowconfigure(0, minsize=9, weight=0)
         #Song Info Box
@@ -471,7 +334,6 @@ class OrganPlayerView(tk.Tk):
         self.right_frame.grid_rowconfigure(2, weight=1)
         self.right_frame.grid_columnconfigure(0, weight=1)
     #    self.right_frame.grid_columnconfigure(1, weight=1)
-
 
         self.current_Frame = tk.LabelFrame(self.right_frame, text="Song Info", padx=20, pady=20, borderwidth=2, relief=tk.GROOVE)
         self.current_Frame.grid(row=1, column=0, sticky="nwe")  # Use grid instead of pack
@@ -493,15 +355,15 @@ class OrganPlayerView(tk.Tk):
         self.button_grid.grid_columnconfigure(1, weight=1)
 
         self.section_progress_bar = ttk.Progressbar(self.control_Frame, orient="horizontal", length=200, mode="determinate", maximum=100)
-        self.stop_button = ttk.Button(self.button_grid, bootstyle=DANGER, state=tk.DISABLED, text='''Stop''')
-        self.play_button = ttk.Button(self.button_grid, bootstyle=SUCCESS, state=tk.DISABLED,  text='''Play''')
+        self.stop_button = ttk.Button(self.button_grid, bootstyle=DANGER, state=tk.DISABLED, text='''Stop''', padding=(20,10))
+        self.play_button = ttk.Button(self.button_grid, bootstyle=SUCCESS, state=tk.DISABLED,  text='''Play''', padding=(20,10))
 
         self.bpm_var = tk.StringVar()  # Holds the value of the bpm entry
-        self.bpm_entry = ttk.Entry(self.control_Frame, textvariable=self.bpm_var)
-        self.show_stop_selection_window_button = ttk.Button(self.control_Frame, text="Show Stop Selection Window", bootstyle=INFO, state=tk.DISABLED, command=self.show_stop_selection_window)    
+        self.bpm_entry = ttk.Entry(self.control_Frame, state=tk.DISABLED, textvariable=self.bpm_var)
+        self.show_stop_selection_window_button = ttk.Button(self.control_Frame, text="Show Stop Selection Window", command=self.show_stop_selection_window, padding=(5,20))    
         self.bpm_button = ttk.Button(self.control_Frame, text="Change bpm", bootstyle=INFO, state=tk.DISABLED, command=self.change_bpm)
 
-        self.control_Frame.grid(row=2, column=0, sticky="nwe")  # Use grid instead of pack
+        self.control_Frame.grid(row=2, column=0, sticky="nswe")  # Use grid instead of pack
         #progress bar
         self.control_Frame.grid_rowconfigure(0, weight=1)
         #button grid
@@ -541,6 +403,29 @@ class OrganPlayerView(tk.Tk):
         # Set the main menu bar to be the menu for the application
         self.config(menu=self.menu_bar)
 
+    def show_stop_selection_window(self):
+        StopSelectionWindow(self.master, None, self.controller, None, context="playlist")
+
+    def edit_playlist_item(self):
+        """
+        Edit the selected item in the playlist.
+        """
+        selected_item = self.playlist_treeview.selection()
+        if selected_item:
+            selected_item_id = selected_item[0]
+            hymn = self.controller.get_hymn_from_playlist(
+                self.playlist_treeview.item(selected_item_id)['values']
+            )
+            if hymn is None:
+                return
+            song_selection_window = SongSelectionWindow(self, self.controller, hymn, "playlist")
+            updated_hymn = song_selection_window.onClose()
+            if updated_hymn is not None:
+                self.controller.remove_from_playlist(hymn)
+                self.controller.update_playlist_hymn(updated_hymn, selected_item_id)
+        else:
+            return
+
     def on_treeview_select(self, event = None):
         selected_item = self.playlist_treeview.selection()
         if selected_item:
@@ -550,18 +435,20 @@ class OrganPlayerView(tk.Tk):
         selected_item = self.playlist_treeview.item(selected_item_id)
         hymn = self.controller.get_hymn_from_playlist(selected_item['values'])  # Get the selected item
         currently_playing = self.controller.is_playing()
-        if not currently_playing and (hymn is None or not hymn.is_hymn):
+        if not currently_playing and (hymn is None or not hymn.is_hymn or hymn.path is None):
             self.bpm_var.set("")
             self.bpm_entry.configure(state=tk.DISABLED)
             self.bpm_button.configure(state=tk.DISABLED)
             self.play_button.configure(state=tk.DISABLED)
             self.stop_button.configure(state=tk.DISABLED)
+            self.bpm_entry.configure(state=tk.DISABLED)
             self.show_stop_selection_window_button.configure(state=tk.DISABLED)
             return
         self.bpm_entry.configure(state=tk.NORMAL)
         self.bpm_button.configure(state=tk.NORMAL)
         self.play_button.configure(state=tk.NORMAL)
         self.stop_button.configure(state=tk.NORMAL)
+        self.bpm_entry.configure(state=tk.NORMAL)
         self.show_stop_selection_window_button.configure(state=tk.NORMAL)
         if not currently_playing:
             self.bpm_var.set(hymn.new_bpm)  # Set the bpm in the Entry
@@ -617,6 +504,10 @@ class OrganPlayerView(tk.Tk):
     def remove_from_playlist(self):
         selected_item = self.playlist_treeview.selection()
         if selected_item:
+            values = self.playlist_treeview.item(selected_item, "values")
+            hymn = self.controller.get_hymn_from_playlist(values)
+            if hymn is not None:
+                self.controller.remove_from_playlist(hymn)         
             self.playlist_treeview.delete(selected_item)
             # Update tags of all items below the deleted item
             for i, item in enumerate(self.playlist_treeview.get_children()):
@@ -625,53 +516,6 @@ class OrganPlayerView(tk.Tk):
 
     def show_loading_message(self):
         print("Loading", "The library files are still loading. Please wait.")
-
-
-    def show_stop_selection_window(self):
-        self.stop_selection_window = tk.Toplevel(self)
-        self.stop_selection_window.title("Stop Selection")
-
-        self.stop_buttons = []
-        my_font = font.Font(family='Helvetica', size=12, weight='bold')
-
-        stop_type_colors = {
-            StopType.REED: "#8B0000",
-         #   StopType.FLUTE: "green",  # Replace with the actual color for StopType.FLUTE
-         #   StopType.STRING: "gold",
-         #   StopType.PRINCIPAL: "blue"  # Replace with the actual color for StopType.STRING
-            # Add more StopType values as needed...
-        }
-
-        for row, (manual_name, manual) in enumerate(manuals.items()):
-            buttons = []
-            frame = tk.LabelFrame(self.stop_selection_window, text=manual_name, padx=10, pady=10, borderwidth=2, relief=tk.GROOVE)
-            for column, (_, stop) in enumerate(manual.stops.items()):
-                color = stop_type_colors.get(stop.stop_type, "black")
-                button = tk.Button(frame, text=stop.label_text, bg="gray", fg=color, width=8, height=4, font=my_font, autostyle=False)
-                button.config(command=lambda btn=button, stp=stop: self.update_stop(stp, btn))
-                button.grid(row=row, column=column, sticky="w")
-                buttons.append(button)
-            self.stop_buttons.append(buttons)
-            frame.grid(row=row, column=0, sticky="w")
-
-       # self.update_stop_selection_columns()
-
-    def update_stop(self, stop, button):
-        if button['bg'] == "gray":
-            button['bg'] = "white"
-            stop.is_engaged = True
-        else:
-            button['bg'] = "gray"
-            stop.is_engaged = False
-        self.send_button_states_to_controller()
-
-    def send_button_states_to_controller(self):
-        engaged_stops = []
-        for row, (manual_name, manual) in enumerate(manuals.items()):
-            for stop_name, stop in manual.stops.items():
-                if stop.is_engaged:
-                    engaged_stops.append(stop)
-        self.controller.receive_engaged_stops(engaged_stops)
 
     def show_library_window(self):
         self.library_window.show()
@@ -686,17 +530,37 @@ class OrganPlayerView(tk.Tk):
 
     def set_controller_dependencies(self):
         self.filemenu.add_command(label="Load Playlist", command=self.controller.load_playlist)
-        self.filemenu.add_command(label="Save Playlist", command=lambda: self.controller.save_playlist([self.playlist_treeview.item(item_id) for item_id in self.playlist_treeview.get_children()]))
+        self.filemenu.add_command(label="Save Playlist", command=self.save_playlist)
+        self.filemenu.add_command(label="Clear Playlist", command=self.clear_playlist)
         self.filemenu.add_separator()
-        self.play_button.configure(command=lambda: self.play())
+        self.filemenu.add_command(label="Exit", command=self.quit)
+        self.midi_menu.add_command(label="Refresh Midi Devices", command=self.refresh_midi_devices)
+        self.midi_menu.add_separator()
+        self.play_button.configure(command=self.play)
         self.stop_button.configure(command=self.controller.stop_playback)
+        self.library_window = LibraryWindow(self, self.controller)
+
+    def save_playlist(self):
+        playlist = [self.playlist_treeview.item(item_id) for item_id in self.playlist_treeview.get_children()]
+        self.controller.save_playlist(playlist)
+    
+    def clear_playlist(self):
+        self.controller.clear_playlist()
+        self.playlist_treeview.delete(*self.playlist_treeview.get_children())
+
+    def refresh_midi_devices(self):
+        self.midi_menu.delete(2, 'end')
         midi_devices = self.controller.get_midi_devices()
         for device in midi_devices:
-            self.midi_menu.add_radiobutton(label=device, variable=self.selected_device, command=lambda: self.controller.set_midi_device(self.selected_device.get()))
-        self.library_window = LibraryWindow(self, self.controller)
+            self.midi_menu.add_radiobutton(label=device, variable=self.selected_device, command=self.set_midi_device)
+
+    def set_midi_device(self):
+        self.controller.set_midi_device(self.selected_device.get())
 
     def stop_loading(self, library_files):
         self.library_window.update_library_view(library_files)
+        self.library_window.show_library_frame()
+
 
     def play(self):
         selected_item = self.playlist_treeview.selection()
@@ -707,6 +571,18 @@ class OrganPlayerView(tk.Tk):
                 return
             self.controller.play_file(hymn, self.update_progress)
 
+    def select_next_item(self):
+        selected_item = self.playlist_treeview.selection()
+        if selected_item:
+            # Get the index of the current selection
+            current_index = self.playlist_treeview.index(selected_item)
+            # Get the total number of items
+            total_items = len(self.playlist_treeview.get_children())
+            # If the current selection is not the last item, select the next item
+            if current_index < total_items - 1:
+                next_item = self.playlist_treeview.get_children()[current_index + 1]
+                self.playlist_treeview.selection_set(next_item)
+
     def update_progress(self, value):
         self.section_progress_bar['value'] = value
         self.update_idletasks()
@@ -714,12 +590,21 @@ class OrganPlayerView(tk.Tk):
     def clear_playlist(self):
         self.playlist_treeview.delete(*self.playlist_treeview.get_children())
 
+    def update_playlist_item(self, hymn, index):
+        self.playlist_treeview.item(index, values=(hymn.hymn_number, hymn.title, hymn.abbreviated_titles))
+
     def update_playlist(self, hymn):
-        index = len(self.playlist_treeview.get_children())
+        children = self.playlist_treeview.get_children()
+        index = len(children)
+        last_text_index = next((i for i, item in reversed(list(enumerate(children))) if "text" in self.playlist_treeview.item(item, "tags")), -1)
         if hymn.is_hymn:
-            tag = "oddrow" if index % 2 else "evenrow"
+            if hymn.path:
+                tag = "oddrow" if (index - (last_text_index + 1)) % 2 else "evenrow"
+            else:
+                tag = "notFound"
         else:
             tag = "text"
+        
         self.playlist_treeview.insert("", "end", values=(hymn.hymn_number, hymn.title, hymn.abbreviated_titles), tags=(tag,))
         self.focus_playlist()
 
@@ -737,5 +622,3 @@ class OrganPlayerView(tk.Tk):
 
     def start_mainloop(self):
         tk.mainloop()
-
-# You can include other related GUI classes and methods in this module as well.
