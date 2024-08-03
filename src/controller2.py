@@ -409,6 +409,7 @@ class PlaybackController:
 
         if not self.sysex_queue.empty():
             stop_msg = self.sysex_queue.get()
+
             self.model.send_midi_message(stop_msg, outport)
 
     def handle_bpm_changes(self, midi, base_bpm):
@@ -461,12 +462,15 @@ class PlaybackController:
         if msg.type == 'end_of_track':
             self.stop_thread.set()
             return
-        elif msg.is_meta or msg.type in ['control_change', 'program_change', 'sysex']:
+        elif msg.is_meta or msg.type in ['control_change', 'program_change']:
+            return
+        if msg.type == 'sysex':
+            self.model.send_midi_message(msg, outport)
             return
         if msg.type in ['note_on', 'note_off']:
             try:
                 new_msg = msg.copy()
-                new_msg.channel = track_names[msg.channel+1]
+                new_msg.channel = msg.channel
                 if new_msg.channel == 0:
                     return
                 print(f"{msg.channel} > {new_msg.channel} which should be {Channels(new_msg.channel)}.")

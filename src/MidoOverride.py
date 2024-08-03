@@ -67,6 +67,8 @@ class MidiFile(mido.MidiFile):
             accumulated_time += delta
             if msg.type == 'set_tempo':
                 tempo = msg.tempo
+            if msg.type == 'sysex':
+                yield (msg.copy(time=delta), track_name)
             if msg.type == "note_on" and accumulated_time >= self.starting_timestamp:
                 starting_message_number = i
                 break
@@ -134,3 +136,4 @@ def fix_end_of_track(messages):
                 accum = 0
             else:
                 yield (msg, track_name)
+    yield MetaMessage('end_of_track', time=accum), None
