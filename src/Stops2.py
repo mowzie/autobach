@@ -3,10 +3,16 @@ from enum import Enum
 
 class Channels(Enum):
     Great = 11
+    Swell = 12
     Pedal = 13
     Choir = 14
-    Swell = 12
+
     Disabled = 0
+    # Great = 10
+    # Pedal = 12
+    # Choir = 13
+    # Swell = 11
+    # Disabled = 0
 
 class StopType(Enum):
     REED = "Reed"
@@ -84,7 +90,7 @@ class Swell(Enum):
     HAUTBOIS_8 =          "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"        #reed
         # TREMULANT = "F0AH00EC" #principal mix
 class Pedal(Enum):
-    MONTRE_32 =       "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 00 00 00 00 00 00 00 00 00 09 00 00"    #
+    MONTRE_32 =       "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 00 00 00 00 00 00 00 00 00 09 00 00"
     PRINCIPAL_16 =    "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 00 00 00 00 00 00 00 00 00 00 00 00" #principal
     SUBBASS_16 =      "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 20 00 00 00 00 00 00 00 00 00 00 00 00" #principal
     OCTAVA_8 =        "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00" #principal
@@ -180,12 +186,12 @@ def calculate_checksum(data):
     return checksum
 
 NO_STOPS = "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
-
+HEADER = "41 10 30 12"
+FOOTER = "F7"
 def get_sysex(stops):
-    HEADER = "F0 41 10 30 12"
-    FOOTER = "F7"
-    sysex = bytes.fromhex(HEADER)
-    data = bytes.fromhex(NO_STOPS)  # Fix: Access NO_STOPS using Stops class
+
+    sysex = bytes.fromhex("F0" + HEADER)
+    data = bytes.fromhex(NO_STOPS)
     for stop in stops:
       #  print(stop)
         data_bytes = bytes.fromhex(stop.hex_value)
@@ -198,19 +204,15 @@ def get_sysex(stops):
     return sysex_string
 
 def get_stops_from_sysex(sysex_string):
-    HEADER = "F0 41 10 30 12"
-    FOOTER = "F7"
-    sysex = bytes.fromhex(sysex_string)
-    data = sysex[len(HEADER):-len(FOOTER)-1]  # Exclude header, footer and checksum
-
+    sysex_string = sysex_string[len(HEADER)+1:-len(FOOTER)-1]
+    data = bytes.fromhex(sysex_string)
     stops = []
     for manual in manuals.values():
         for stop in manual.stops.values():  # Assuming Stops.ALL_STOPS contains all possible stops
             stop_bytes = bytes.fromhex(stop.hex_value)
-            if all(a & b == b for a, b in zip(data, stop_bytes)):  # If all bits in stop are set in data
+            if all((a & b) == b for a, b in zip(data, stop_bytes)):  # If all bits in stop are set in data
                 stops.append(stop)
     return stops
-
 
 class DefaultSettings:
     def __init__(self):
