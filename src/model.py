@@ -12,6 +12,7 @@ import mido.backends.rtmidi
 import shutil
 from config import kind_to_folder
 from Stops2 import *
+from MidoOverride import _merge_tracks
 
 if hasattr(sys, '_MEIPASS'):
     BASE_DIR = os.path.dirname(sys.executable)
@@ -642,7 +643,8 @@ class OrganPlayerModel:
         with mido.MidiFile(midi_file) as midi:
             bpm = 120
             tempo = 500000
-            for msg in midi.tracks[0]:
+            for msg in _merge_tracks(midi.tracks):
+                msg = msg[0]
                 if msg.time > 0:
                     delta = mido.tick2second(msg.time, midi.ticks_per_beat, tempo)
                 else:
@@ -682,18 +684,12 @@ class OrganPlayerModel:
             for track in midi.tracks:
                 for msg in track:
                     if msg.type == "note_on":
-                        channel_instrument[channel] = f"Track {channel}"
+                        if msg.channel in Channels:
+                            channel_instrument[channel] = msg.channel
+                        else:
+                            channel_instrument[channel] = 0
                         break
                 channel += 1
-
-            # # Check for Program Changes
-            # channel = 0
-            # for msg in mido.merge_tracks(midi.tracks):
-            #     if msg.type == "program_change":
-            #         channel_instrument[channel] = program_change_dict[msg.program + 1]
-            #     elif msg.type == "note_on":
-            #         break
-            #     channel += 1
 
         markers_dict_list = [marker.to_dict() for marker in markers_and_times]
         return title, number, key_signature, time_signature, bpm, markers_dict_list, channel_instrument

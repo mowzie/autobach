@@ -6,13 +6,7 @@ class Channels(Enum):
     Swell = 12
     Pedal = 13
     Choir = 14
-
     Disabled = 0
-    # Great = 10
-    # Pedal = 12
-    # Choir = 13
-    # Swell = 11
-    # Disabled = 0
 
 class StopType(Enum):
     REED = "Reed"

@@ -317,8 +317,10 @@ class PlaybackController:
             elapsed_time = current_time - start_time
             if elapsed_time >= 0.01:
                 self.scaled_time += 0.01 * self.scaler
-                update_progress_callback((self.scaled_time /  duration) * 100)
+                progress = (self.scaled_time / duration) * 100
+                update_progress_callback(min(progress,100))
                 start_time = current_time
+            time.sleep(0.1)
         update_progress_callback(0)
 
     def __playback_thread(self, hymn, update_progress_callback):
@@ -409,7 +411,6 @@ class PlaybackController:
 
         if not self.sysex_queue.empty():
             stop_msg = self.sysex_queue.get()
-
             self.model.send_midi_message(stop_msg, outport)
 
     def handle_bpm_changes(self, midi, base_bpm):

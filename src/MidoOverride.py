@@ -31,14 +31,15 @@ class MidiFile(mido.MidiFile):
         self.ending_timestamp = ending_timestamp
         accumulated_time = 0.0
         played_first_message = False
+        start_time = time.time()
         for (msg, _) in self:
-            sleep_time = msg.time
-            if self.bpm_scaler != 1.0:
-                sleep_time = msg.time / self.bpm_scaler
             accumulated_time += msg.time * self.bpm_scaler
+            playback_time = time.time() - start_time
+            duration_to_next_event = accumulated_time - playback_time
 
             if played_first_message:
-                sleep(sleep_time)
+                if duration_to_next_event > 0:
+                    sleep(duration_to_next_event)
             if not played_first_message and msg.type == 'note_on' and msg.velocity > 0:
                 played_first_message = True
 
