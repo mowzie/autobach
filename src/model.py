@@ -684,10 +684,10 @@ class OrganPlayerModel:
             for track in midi.tracks:
                 for msg in track:
                     if msg.type == "note_on":
-                        if msg.channel in Channels:
+                        if msg.channel in Channels._value2member_map_:
                             channel_instrument[channel] = msg.channel
                         else:
-                            channel_instrument[channel] = 0
+                            channel_instrument[channel] = channel+11
                         break
                 channel += 1
 
