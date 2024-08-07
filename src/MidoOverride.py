@@ -33,7 +33,7 @@ class MidiFile(mido.MidiFile):
         played_first_message = False
         start_time = time.time()
         for (msg, _) in self:
-            accumulated_time += msg.time * self.bpm_scaler
+            accumulated_time += msg.time / self.bpm_scaler
             playback_time = time.time() - start_time
             duration_to_next_event = accumulated_time - playback_time
 
@@ -61,14 +61,11 @@ class MidiFile(mido.MidiFile):
         accumulated_time = 0.0
 
         for i, (msg, track_name) in enumerate(merged_tracks):
-            if msg.time > 0:
-                delta = tick2second(msg.time, self.ticks_per_beat, tempo)
-            else:
-                delta = 0
+            delta = tick2second(msg.time, self.ticks_per_beat, tempo) if msg.time > 0 else 0
             accumulated_time += delta
             if msg.type == 'set_tempo':
                 tempo = msg.tempo
-            if msg.type == 'sysex':
+            if msg.type in {'sysex', 'control_change'}:
                 yield (msg.copy(time=delta), track_name)
             if msg.type == "note_on" and accumulated_time >= self.starting_timestamp:
                 starting_message_number = i

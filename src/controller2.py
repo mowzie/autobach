@@ -93,6 +93,8 @@ class OrganPlayerController:
     
     def get_hymn_from_library_to_playlist(self, item):
         hymn = self.library_controller.get_hymn_from_library(item)
+        if hymn is None:
+            return None
         return self.model.convert_library_hymn_to_playlist_hymn(hymn)
 
     def load_library_files(self, reloadCache = False, total_files_callback = None, update_progress_callback=None):
@@ -316,9 +318,9 @@ class PlaybackController:
             current_time = time.perf_counter()
             elapsed_time = current_time - start_time
             if elapsed_time >= 0.01:
-                self.scaled_time += 0.01 * self.scaler
+                self.scaled_time += elapsed_time * self.scaler
                 progress = (self.scaled_time / duration) * 100
-                update_progress_callback(min(progress,100))
+                update_progress_callback(min(progress, 100))
                 start_time = current_time
             time.sleep(0.1)
         update_progress_callback(0)
@@ -351,7 +353,17 @@ class PlaybackController:
             midi = MidiFile(filename = hymn.path)
 
             if base_bpm != hymn.new_bpm:
-                self.scaler = int(hymn.new_bpm) / int(base_bpm)
+                try:
+                    base_bpm_int = int(base_bpm)
+                    new_bpm_int = int(hymn.new_bpm)
+                    if base_bpm_int > 0:
+                        self.scaler = new_bpm_int / base_bpm_int
+                        print(f"Scaler: {self.scaler}")
+                    else:
+                        raise ValueError("Base BPM must be greater than zero.")
+                except ValueError as e:
+                    print(f"Error calculating scaler: {e}")
+                    self.scaler = 1
             else:
                 self.scaler = 1.0
             MidiFile.set_bpm_scaler(midi, self.scaler)
@@ -426,7 +438,17 @@ class PlaybackController:
         """
         if not self.bpm_queue.empty():
             new_bpm = self.bpm_queue.get()
-            self.scaler = int(new_bpm) / int(base_bpm)
+            try:
+                base_bpm_int = int(base_bpm)
+                new_bpm_int = int(new_bpm)
+                if base_bpm_int > 0:
+                    self.scaler = new_bpm_int / base_bpm_int
+                    print(f"Scaler: {self.scaler}")
+                else:
+                    raise ValueError("Base BPM must be greater than zero.")
+            except ValueError as e:
+                    print(f"Error calculating scaler: {e}")
+                    self.scaler = 1  # Default to 1 if there's an error
             MidiFile.set_bpm_scaler(midi, self.scaler)
 
     def handle_transpose_changes(self, outport, transpose):
@@ -474,13 +496,12 @@ class PlaybackController:
                 new_msg.channel = msg.channel
                 if new_msg.channel == 0:
                     return
-                print(f"{msg.channel} > {new_msg.channel} which should be {Channels(new_msg.channel)}.")
+                #print(f"{msg.channel} > {new_msg.channel} which should be {Channels(new_msg.channel)}.")
             except KeyError:
                 return
             if transpose != 0:
                 new_msg.note += transpose
            # print("step " + str(step), new_msg.type, str(new_msg))
-            print(new_msg)
             self.model.send_midi_message(new_msg, outport)
 
     def stop_playback(self):
