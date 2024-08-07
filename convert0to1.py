@@ -1,6 +1,26 @@
 import os
+import argparse
 from enum import Enum
-from mido import MidiFile, MidiTrack, MetaMessage
+from mido import MidiFile, MidiTrack, MetaMessage, Message
+
+def parse_filename(filename):
+    # Remove the extension
+    name, _ = os.path.splitext(filename)
+    
+    # Split the name into parts
+    parts = name.split()
+    
+    # Extract the setting number and the rest of the title
+    setting_number = parts[1]
+    title = ' '.join(parts[2:])
+    
+    # Transform the setting number
+    ds_number = f"DS{setting_number.split('.')[0]}"
+    remaining_numbers = '.'.join(setting_number.split('.')[1:])
+    # Combine the transformed setting number with the rest of the title
+    new_name = f"{ds_number} {remaining_numbers} {title}" if remaining_numbers else f"{ds_number} {title}"
+    
+    return new_name
 
 class Channels(Enum):
     Great = 11
@@ -8,7 +28,7 @@ class Channels(Enum):
     Pedal = 13
     Choir = 14
 
-def convert_type_0_to_type_1(input_file, output_file):
+def convert_type_0_to_type_1(input_file, output_file, parsed_filename):
     # Load the existing MIDI Type 0 file
     mid = MidiFile(input_file)
 
@@ -40,9 +60,7 @@ def convert_type_0_to_type_1(input_file, output_file):
         if isinstance(msg, MetaMessage) or msg.type == 'sysex':
             # Add SysEx and marker events to the composer track
             if msg.type == 'track_name':
-                filename_with_extension = os.path.basename(input_file)
-                filename, _ = os.path.splitext(filename_with_extension)
-                msg.name = filename
+                msg.name = parsed_filename
             delta_time = absolute_time - last_time['meta']
             last_time['meta'] = absolute_time
             composer_track.append(msg.copy(time=delta_time))
@@ -54,8 +72,10 @@ def convert_type_0_to_type_1(input_file, output_file):
             if msg.channel not in channel_tracks:
                 channel_tracks[msg.channel] = MidiTrack()
                 new_mid.tracks.append(channel_tracks[msg.channel])
-                newMsg = MetaMessage('instrument_name', name=f"{Channels(msg.channel).name}", time=0)
-                channel_tracks[msg.channel].append(newMsg)
+                track_name_message = MetaMessage('track_name', name=f"{Channels(msg.channel).name}", time=0)
+                channel_tracks[msg.channel].append(track_name_message)
+                setOrganMessage = Message('program_change', channel=msg.channel, program=19, time=0)
+                channel_tracks[msg.channel].append(setOrganMessage)
             delta_time = absolute_time - last_time[msg.channel]
             last_time[msg.channel] = absolute_time
             channel_tracks[msg.channel].append(msg.copy(time=delta_time))
@@ -64,8 +84,14 @@ def convert_type_0_to_type_1(input_file, output_file):
     new_mid.filename = mid.filename
     new_mid.save(output_file)
 
-# Example usage
-input_file ="C:\\code\\autobach\\Setting 2.1 Kyrie.mid"
-output_file = 'test_type1.mid'
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Check for note overlaps in a MIDI file.")
+    parser.add_argument("input_file", type=str, help="Path to the MIDI file")
+    args = parser.parse_args()
 
-convert_type_0_to_type_1(input_file, output_file)
+    filename_with_extension = os.path.basename(args.input_file)
+    parsed_filename = parse_filename(filename_with_extension)
+
+    output_file = f"C:\\code\\autobach\\output\\{parsed_filename}.mid"
+
+    convert_type_0_to_type_1(args.input_file, output_file, parsed_filename)
