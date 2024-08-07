@@ -18,6 +18,5 @@ kind_to_folder = {
     "Hymn": HYMNPATH,
     "DivineService": LITURGYPATH,
     "PsalmNotes": PSALMNOTESPATH,
-    "Vespers": LITURGYPATH,
     "Other": OTHERPATH
 }
