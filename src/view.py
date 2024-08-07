@@ -104,11 +104,11 @@ class LibraryWindow(tk.Toplevel):
         self.library_frame.pack_forget()
 
         self.library_treeview = ScrolledTreeView(self.library_frame, columns=("Number", "Title", "ParentTitle", "Kind", "Key", "TimeSignature"), show="tree headings")
-        self.library_treeview.heading("Number", text="#", command=lambda: self.treeview_sort_column("Number", False))
-        self.library_treeview.heading("Title", text="Title", command=lambda: self.treeview_sort_column("Title", False))
-        self.library_treeview.heading("Kind", text="Kind", command=lambda: self.treeview_sort_column("Kind", False))
+        self.library_treeview.heading("Number", text="#", command=lambda: self.treeview_sort_column("Number"))
+        self.library_treeview.heading("Title", text="Title", command=lambda: self.treeview_sort_column("Title"))
+        self.library_treeview.heading("Kind", text="Kind", command=lambda: self.treeview_sort_column("Kind"))
         #self.library_treeview.heading("Key", text="Key", command=lambda: self.treeview_sort_column("Key", False))  # New column
-        self.library_treeview.heading("TimeSignature", text="Time Signature", command=lambda: self.treeview_sort_column("TimeSignature", False))  # New column
+        self.library_treeview.heading("TimeSignature", text="Time Signature", command=lambda: self.treeview_sort_column("TimeSignature"))  # New column
         self.library_treeview.column("Number", width=40, stretch="no")
         self.library_treeview.column("Title", stretch="yes", anchor="w")
         self.library_treeview.column("ParentTitle", width = 0, anchor="w")  # Text centered in column "ParentTitle"
@@ -116,7 +116,7 @@ class LibraryWindow(tk.Toplevel):
      #   self.library_treeview.column("Key", width = 40, stretch="no")  # New column
         self.library_treeview.column("TimeSignature", width=40, stretch="no")  # New column
         self.library_treeview.column("#0", width=0, stretch="no")
-        self.library_treeview["displaycolumns"] = ("Number", "Title", "ParentTitle", "Kind")  # Include new columns
+        self.library_treeview["displaycolumns"] = ("Number", "Title", "ParentTitle")  # Include new columns
         self.filter_label = tk.Label(self, text="Filter Text")
         self.filter_entry = ttk.Entry(self, width=50)
         self.filter_entry.bind('<KeyRelease>', self.filter_treeview)
@@ -165,17 +165,17 @@ class LibraryWindow(tk.Toplevel):
                 self.controller.update_library_hymn(updated_hymn, selected_item_id)
 
     def add_to_playlist(self):
-        selected_item = self.library_treeview.selection()
-        if selected_item:
+        selected_items = self.library_treeview.selection()
+        for selected_item in selected_items:
             values = self.library_treeview.item(selected_item, "values")
             hymn = self.controller.get_hymn_from_library_to_playlist(values)
             if hymn is None:
-                return
-        #make the change here
-        song_selection_window = SongSelectionWindow(self.master, self.controller, hymn, "add_to_playlist")
-        hymn = song_selection_window.onClose()
-        if hymn is not None:
-            self.controller.add_to_playlist(hymn)
+                continue
+            # Make the change here
+            song_selection_window = SongSelectionWindow(self.master, self.controller, hymn, "add_to_playlist")
+            hymn = song_selection_window.onClose()
+            if hymn is not None:
+                self.controller.add_to_playlist(hymn)
 
     def set_total_files(self, total):
         self.progress['maximum'] = total
@@ -185,7 +185,7 @@ class LibraryWindow(tk.Toplevel):
         self.update_idletasks()
 
     def show_library_frame(self):
-        self.treeview_sort_column("Number", False)
+        self.treeview_sort_column("Number", "Title")
         self.library_frame.pack(side=tk.LEFT, fill="both", expand=True)
         self.filter_label.pack(side=tk.TOP, fill="x", expand=False)
         self.filter_entry.pack(side=tk.TOP, fill="x", expand=False, pady=(0, 20))
@@ -200,18 +200,26 @@ class LibraryWindow(tk.Toplevel):
     def show(self):
         self.deiconify()  # Show the window
 
-    def treeview_sort_column(self, column, reverse):
+    def treeview_sort_column(self, col1, col2=None, reverse=False):
         for parent in self.library_treeview.get_children(''):
-            data = [(self.library_treeview.set(k, column), k) for k in self.library_treeview.get_children(parent)]
-            data = natsorted(data, key=lambda x: x[0], reverse=reverse)
+            if col2:
+                data = [(self.library_treeview.set(child, col1), self.library_treeview.set(child,col2), child) for child in self.library_treeview.get_children(parent)]
+                data = natsorted(data, key=lambda x: (x[0],x[1]), reverse=reverse)
+            else:
+                data = [(self.library_treeview.set(child, col1), child) for child in self.library_treeview.get_children(parent)]
+                data = natsorted(data, key=lambda x: x[0], reverse=reverse)
 
-            for index, (_, k) in enumerate(data):
+            for index, item in enumerate(data):
+                if col2:
+                    _,_,k = item
+                else:
+                    _,k = item
                 self.library_treeview.move(k, parent, index)
                 # Update the tags for the rows after sorting
                 tag = "oddrow" if index % 2 else "evenrow"
                 self.library_treeview.item(k, tags=(tag,))
 
-        self.library_treeview.heading(column, command=lambda: self.treeview_sort_column(column, not reverse))
+        self.library_treeview.heading(col1, command=lambda: self.treeview_sort_column(col1,col2, not reverse))
 
 
     def start_loading(self):
@@ -231,7 +239,8 @@ class LibraryWindow(tk.Toplevel):
 
         if hymn.kind == "DivineService":
             if hymn.hymn_number not in self.parent_items:
-                self.parent_items[hymn.hymn_number] = self.library_treeview.insert("", "end", values=("",  f"{hymn.hymn_number}", "", "", "", ""), tags=("parent",))
+                setting_number = hymn.hymn_number.replace("DS", "Setting ")
+                self.parent_items[hymn.hymn_number] = self.library_treeview.insert("", "end", values=("",  setting_number, "", "", "", ""), tags=("parent",))
                 self.library_treeview.item(self.parent_items[hymn.hymn_number], open=True)
                 self.library_treeview.insert(self.parent_items[hymn.hymn_number], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"  ), tags=(tag,))
             else:
@@ -461,6 +470,19 @@ class OrganPlayerView(tk.Tk):
     def show_seperator_window(self, event=None):
         seperator_window = tk.Toplevel(self)
         seperator_window.title("Seperator Text")
+        seperator_window.attributes('-topmost', True)  # Ensure the window stays on top
+
+        # Get the coordinates of the previous window
+        previous_window_x = self.winfo_x()
+        previous_window_y = self.winfo_y()
+        previous_window_width = self.winfo_width()
+        previous_window_height = self.winfo_height()
+
+        # Calculate the position for the new window
+        new_window_x = previous_window_x + (previous_window_width // 2)
+        new_window_y = previous_window_y + (previous_window_height // 2)
+        # Set the position of the new window
+        seperator_window.geometry(f"+{new_window_x}+{new_window_y}")
 
         seperator_text = tk.StringVar(value="")
         seperator_entry = ttk.Entry(seperator_window, textvariable=seperator_text)
@@ -470,13 +492,18 @@ class OrganPlayerView(tk.Tk):
         submit_button.pack()
         cancel_button.pack()
         seperator_window.bind('<Return>', lambda event : self.submit_seperator(seperator_text.get(), seperator_window))
-        seperator_window.bind('<Escape>', lambda : seperator_window.destroy())
+        seperator_window.bind('<Escape>', lambda event : seperator_window.destroy())
         seperator_entry.focus_set()  # Set focus on the entry
 
     def submit_seperator(self, seperator_text, seperator_window):
         tag = "text"
         self.playlist_treeview.insert("", "end", values=("", seperator_text, ""), tags=(tag,))
         seperator_window.destroy()
+
+    def update_playlist_tags(self):
+        for i, item in enumerate(self.playlist_treeview.get_children()):
+            if "text" not in self.playlist_treeview.item(item, "tags"):
+                self.playlist_treeview.item(item, tags=('oddrow' if i % 2 else 'evenrow'))
 
     def move_up(self):
         selected_item = self.playlist_treeview.selection()
@@ -485,9 +512,7 @@ class OrganPlayerView(tk.Tk):
             if index > 0:  # Ensure we're not already at the top
                 self.playlist_treeview.move(selected_item, '', index - 1)
                 # Update tags after moving
-                for i, item in enumerate(self.playlist_treeview.get_children()):
-                    if "text" not in self.playlist_treeview.item(item, "tags"):
-                        self.playlist_treeview.item(item, tags=('oddrow' if i % 2 else 'evenrow'))
+                self.update_playlist_tags()
 
     def move_down(self):
         selected_item = self.playlist_treeview.selection()
@@ -497,9 +522,7 @@ class OrganPlayerView(tk.Tk):
             if index < len(self.playlist_treeview.get_children()) - 1:
                 self.playlist_treeview.move(selected_item, '', index + 1)
                 # Update tags after moving
-                for i, item in enumerate(self.playlist_treeview.get_children()):
-                    if "text" not in self.playlist_treeview.item(item, "tags"):
-                        self.playlist_treeview.item(item, tags=('oddrow' if i % 2 else 'evenrow'))
+                self.update_playlist_tags()
 
     def remove_from_playlist(self):
         selected_item = self.playlist_treeview.selection()
@@ -510,9 +533,7 @@ class OrganPlayerView(tk.Tk):
                 self.controller.remove_from_playlist(hymn)         
             self.playlist_treeview.delete(selected_item)
             # Update tags of all items below the deleted item
-            for i, item in enumerate(self.playlist_treeview.get_children()):
-                if "text" not in self.playlist_treeview.item(item, "tags"):
-                  self.playlist_treeview.item(item, tags=('oddrow' if i % 2 else 'evenrow'))
+            self.update_playlist_tags()
 
     def show_loading_message(self):
         print("Loading", "The library files are still loading. Please wait.")

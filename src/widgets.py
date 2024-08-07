@@ -126,7 +126,10 @@ class SongSelectionWindow:
         self.context = context
         # Create a new window
         self.new_window = tk.Toplevel(self.master)
-        self.new_window.title("Select Options")
+        self.new_window.title(f"{hymn.hymn_number} {hymn.title}")
+        self.new_window.attributes('-topmost', 'true')
+        self.new_window.resizable(False, False)
+        self.new_window.focus_force()
         container = tk.Frame(self.new_window)
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
@@ -266,10 +269,12 @@ class SongSelectionWindow:
             channel_name = track_channels[int(channel)].get()
             channel_enum = Channels[channel_name]
             hymn.track_names[channel] = int(channel_enum.value)
+        hymn.use_default_stops = self.use_default_stops.get()
         self.hymn = hymn
         self.new_window.destroy()
 
     def onClose(self):
+        self.new_window.destroy()
         return self.hymn
 
 class StopSelectionWindow:

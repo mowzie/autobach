@@ -52,13 +52,14 @@ class PlaylistHymn:
         self.is_hymn = is_hymn
         self.markers = markers or []
         self.selected_markers = selected_markers or []
-        self.track_channels = track_channels or {}  # Attribute for the tracks
+    #    self.track_channels = track_channels or {}  # Attribute for the tracks
         self.track_names = track_names or {}  # New attribute for the track channels
         self.time_signature = time_signature or {}
         self.bpm = bpm
         self.new_bpm = bpm if new_bpm == 0 else new_bpm
         self.abbreviated_titles = abbreviated_titles
         self.is_prelude = False
+        self.use_default = True
 
     @classmethod
     def from_library_hymn(cls, library_hymn):
@@ -643,6 +644,7 @@ class OrganPlayerModel:
         with mido.MidiFile(midi_file) as midi:
             bpm = 120
             tempo = 500000
+
             for msg in _merge_tracks(midi.tracks):
                 msg = msg[0]
                 if msg.time > 0:
@@ -650,7 +652,7 @@ class OrganPlayerModel:
                 else:
                     delta = 0
                 accumulated_time += delta
-                if msg.type == 'track_name':
+                if msg.type == 'track_name' and title == "":
                     parts = msg.name.split(" ", 1)
                     number = parts[0]
                     title = parts[1] if len(parts) > 1 else ""
@@ -685,7 +687,7 @@ class OrganPlayerModel:
                 for msg in track:
                     if msg.type == "note_on":
                         if msg.channel in Channels._value2member_map_:
-                            channel_instrument[channel] = msg.channel
+                            channel_instrument[channel] = Channels(msg.channel).name
                         else:
                             channel_instrument[channel] = channel+11
                         break
