@@ -44,7 +44,7 @@ class PlaylistHymn:
         abbreviated_titles (str): Abbreviated titles of the hymn.
     """
 
-    def __init__(self, title, hymn_number, path, kind, is_hymn=True, markers=None, selected_markers=None, track_channels=None, track_names=None, time_signature=None, bpm=120, new_bpm=0, abbreviated_titles=""):
+    def __init__(self, title, hymn_number, path, kind, is_hymn=True, markers=None, selected_markers=None, track_channels=None, track_names=None, time_signature=None, bpm=120, new_bpm=0, abbreviated_titles="", has_sysex=False):
         self.title = title
         self.hymn_number = hymn_number
         self.path = path
@@ -60,6 +60,7 @@ class PlaylistHymn:
         self.abbreviated_titles = abbreviated_titles
         self.is_prelude = False
         self.use_default = True
+        self.has_sysex = has_sysex
 
     @classmethod
     def from_library_hymn(cls, library_hymn):
@@ -86,6 +87,7 @@ class PlaylistHymn:
             bpm=library_hymn.bpm,
             new_bpm=library_hymn.new_bpm,
             # abbreviated_titles=library_hymn.abbreviated_titles
+            has_sysex=library_hymn.has_sysex
         )
 
     def to_dict(self, index):
@@ -112,7 +114,8 @@ class PlaylistHymn:
                 'track_names': self.track_names,
                 'time_signature': self.time_signature,
                 'bpm': self.bpm,
-                'new_bpm': self.new_bpm
+                'new_bpm': self.new_bpm,
+                'has_sysex': self.has_sysex
             }
         }
 
@@ -147,7 +150,8 @@ class PlaylistHymn:
             time_signature=dictionary.get('time_signature', {}),
             bpm=dictionary.get('bpm', 120),
             new_bpm=dictionary.get('new_bpm'),
-            abbreviated_titles=key.split("-")[-2]
+            abbreviated_titles=key.split("-")[-2],
+            has_sysex=dictionary.get('has_sysex', False)
         )
 
 class LibraryHymn:
@@ -169,7 +173,7 @@ class LibraryHymn:
         new_bpm (int): New beats per minute.
     """
 
-    def __init__(self, title, hymn_number, path, kind, is_hymn=True, markers=None, track_channels=None, track_names=None, key_signature=None, time_signature=None, bpm=120, new_bpm=0):
+    def __init__(self, title, hymn_number, path, kind, is_hymn=True, markers=None, track_channels=None, track_names=None, key_signature=None, time_signature=None, bpm=120, new_bpm=0, has_sysex=False):
         self.title = title
         self.hymn_number = hymn_number
         self.path = path
@@ -182,6 +186,7 @@ class LibraryHymn:
         self.key_signature = key_signature
         self.bpm = bpm
         self.new_bpm = bpm if new_bpm == 0 else new_bpm
+        self.has_sysex = has_sysex
 
     def to_dict(self):
         """
@@ -202,7 +207,8 @@ class LibraryHymn:
             'time_signature': self.time_signature,
             'key_signature': self.key_signature,
             'bpm': self.bpm,
-            'new_bpm': self.new_bpm
+            'new_bpm': self.new_bpm,
+            'has_sysex': self.has_sysex
         }
 
     @staticmethod
@@ -232,7 +238,8 @@ class LibraryHymn:
             time_signature=dictionary.get('time_signature', {}),
             key_signature=dictionary.get('key_signature'),
             bpm=dictionary.get('bpm', 120),
-            new_bpm=dictionary.get('new_bpm', dictionary.get('bpm'))
+            new_bpm=dictionary.get('new_bpm', dictionary.get('bpm')),
+            has_sysex=dictionary.get('has_sysex', False)
         )
 
 class Marker:
@@ -640,6 +647,7 @@ class OrganPlayerModel:
         time_signature = {}
         accumulated_time = 0.0
         end_time = 0.0
+        has_sysex = False
 
         with mido.MidiFile(midi_file) as midi:
             bpm = 120
@@ -658,6 +666,8 @@ class OrganPlayerModel:
                     title = parts[1] if len(parts) > 1 else ""
                 elif msg.type == 'key_signature':
                     key_signature = msg.key
+                elif msg.type == 'sysex':
+                    has_sysex = True
                 elif msg.type == 'time_signature':
                     time_signature['numerator'] = msg.numerator
                     time_signature['denominator'] = msg.denominator
@@ -682,19 +692,18 @@ class OrganPlayerModel:
 
             # # initialize all known tracks with notes
             channel_instrument = {}
-            channel = 0
+
             for track in midi.tracks:
                 for msg in track:
                     if msg.type == "note_on":
-                        if msg.channel in Channels._value2member_map_:
-                            channel_instrument[channel] = Channels(msg.channel).name
+                        if Channels.has_key(track.name):
+                            channel_instrument[msg.channel] = Channels[track.name].value
                         else:
-                            channel_instrument[channel] = channel+11
+                            channel_instrument[msg.channel] = Channels.Great.value
                         break
-                channel += 1
 
         markers_dict_list = [marker.to_dict() for marker in markers_and_times]
-        return title, number, key_signature, time_signature, bpm, markers_dict_list, channel_instrument
+        return title, number, key_signature, time_signature, bpm, markers_dict_list, channel_instrument, has_sysex
 
     def read_midi_metadata(self, file_path):
         """
@@ -706,8 +715,8 @@ class OrganPlayerModel:
         Returns:
             dict: Metadata of the MIDI file.
         """
-        title, number, key_signature, time_signature, bpm, markers_and_times, track_names = self.scan_for_markers(file_path)
-        return {'title': title, 'hymn_number': number, 'key_signature': key_signature, 'time_signature': time_signature, 'bpm': bpm, 'is_hymn': True, 'markers': markers_and_times, 'path': file_path, 'track_names': track_names}
+        title, number, key_signature, time_signature, bpm, markers_and_times, track_names, has_sysex = self.scan_for_markers(file_path)
+        return {'title': title, 'hymn_number': number, 'key_signature': key_signature, 'time_signature': time_signature, 'bpm': bpm, 'is_hymn': True, 'markers': markers_and_times, 'path': file_path, 'track_names': track_names, 'has_sysex': has_sysex}
 
     def load_cache(self, file_path):
         """

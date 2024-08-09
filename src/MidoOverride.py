@@ -31,22 +31,27 @@ class MidiFile(mido.MidiFile):
         self.ending_timestamp = ending_timestamp
         accumulated_time = 0.0
         played_first_message = False
-        start_time = time.time()
+        start_time = 0
+        progresstime = 0
         for (msg, _) in self:
-            accumulated_time += msg.time / self.bpm_scaler
-            playback_time = time.time() - start_time
-            duration_to_next_event = accumulated_time - playback_time
-
+            progresstime += msg.time / self.bpm_scaler
             if played_first_message:
+                accumulated_time += msg.time / self.bpm_scaler
+                playback_time = time.time() - start_time
+                duration_to_next_event = accumulated_time - playback_time
                 if duration_to_next_event > 0:
+                    print("Sleeping for", duration_to_next_event)
                     sleep(duration_to_next_event)
-            if not played_first_message and msg.type == 'note_on' and msg.velocity > 0:
-                played_first_message = True
+            else:
+                if msg.type == 'note_on' and msg.velocity > 0:
+                    print("Playing first message")
+                    played_first_message = True
+                    start_time = time.time()
 
             if isinstance(msg, MetaMessage) and not meta_messages:
                 continue
             else:
-                yield (msg, accumulated_time)
+                yield (msg, progresstime)
 
     def __iter__(self):
         # The tracks of type 2 files are not in sync, so they can

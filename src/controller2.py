@@ -262,6 +262,7 @@ class PlaybackController:
         self.transpose = 0
         self.current_time = 0.0
         self.scaler = 1.0
+        self.acc_time = 0.0
 
     def set_midi_device(self, midi_device):
         """
@@ -318,6 +319,8 @@ class PlaybackController:
             current_time = time.perf_counter()
             elapsed_time = current_time - start_time
             if elapsed_time >= 0.01:
+                if self.scaled_time < self.acc_time:
+                    self.scaled_time = self.acc_time
                 self.scaled_time += elapsed_time * self.scaler
                 progress = (self.scaled_time / duration) * 100
                 update_progress_callback(min(progress, 100))
@@ -373,6 +376,7 @@ class PlaybackController:
             threading.Thread(target=self.progressbar_thread, args=(update_progress_callback, real_duration)).start()
 
             for (msg, acc_time) in midi.play(starting_timestamp=marker.start_time, ending_timestamp=marker.stop_time):
+                self.acc_time = acc_time
                 if self.stop_thread.is_set():
                     break
                 self.handle_sysex_messages_queue(outport)
@@ -493,7 +497,8 @@ class PlaybackController:
         if msg.type in ['note_on', 'note_off']:
             try:
                 new_msg = msg.copy()
-                new_msg.channel = msg.channel
+#TODO: This is a hack to get the channel to work. Need to fix this.
+                new_msg.channel = track_names[msg.channel]
                 if new_msg.channel == 0:
                     return
                 #print(f"{msg.channel} > {new_msg.channel} which should be {Channels(new_msg.channel)}.")

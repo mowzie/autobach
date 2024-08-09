@@ -166,19 +166,19 @@ class SongSelectionWindow:
         channel_names = [channel.name for channel in Channels]
 
         # For each track, create a label and an OptionMenu and add them to the new window
-        for i, (channel, instrument)  in enumerate(hymn.track_names.items()):
-            channel = int(channel)
+        for i, (input_channel, output_channel) in enumerate(hymn.track_names.items()):
             # Create a label for the track
-            track_label = tk.Label(right_frame, text=instrument)
+            label_text = Channels.get_channel_name(output_channel)
+            track_label = tk.Label(right_frame, text=label_text)
             track_label.grid(row=i, column=2, sticky="w")
 
             # Create an OptionMenu for the track                  
-            channel_var = tk.StringVar(value=channel_names[i % len(channel_names)])
+            channel_var = tk.StringVar(value=label_text)
             channel_menu = tk.OptionMenu(right_frame, channel_var, *channel_names)
             channel_menu.grid(row=i, column=3, sticky="w")
 
             # Store the OptionMenu in the dictionary
-            track_channels[channel] = channel_var
+            track_channels[int(input_channel)] = channel_var
         button_frame = tk.Frame(container)
         button_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
         # Add a checkbox to use default organ stops for marker sections
@@ -251,7 +251,8 @@ class SongSelectionWindow:
 
         if self.use_default_stops.get():
             for section in self.selected_sections:
-                section.stops = default_stops
+                if not hymn.has_sysex:
+                    section.stops = default_stops
         else:
             for section in self.selected_sections:
                 # Show a new window to select the stops for this section

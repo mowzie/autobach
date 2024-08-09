@@ -8,6 +8,17 @@ class Channels(Enum):
     Choir = 14
     Disabled = 0
 
+    @classmethod
+    def has_key(cls, name):
+        return name in cls.__members__
+    
+    @classmethod
+    def get_channel_name(cls, value):
+        try:
+            return Channels(value).name
+        except ValueError:
+            return "Disabled"
+
 class StopType(Enum):
     REED = "Reed"
     STRING = "String"
