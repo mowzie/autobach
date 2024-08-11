@@ -382,7 +382,7 @@ class PlaybackController:
                 self.handle_sysex_messages_queue(outport)
                 self.handle_bpm_changes(midi, base_bpm)
                 self.handle_transpose_changes(outport, transpose)
-                self.handle_note_messages(msg, track_names, transpose, step, outport)
+                self.handle_note_messages(msg, track_names, transpose, hymn.use_registration, outport)
 
                 step += 1
             self.stop_progressthread.set()
@@ -472,7 +472,7 @@ class PlaybackController:
             if transpose == 1:
                 transpose = 12
 
-    def handle_note_messages(self, msg, track_names, transpose, step, outport):
+    def handle_note_messages(self, msg, track_names, transpose, use_registration, outport):
         """
         Handles the note messages during playback.
 
@@ -492,12 +492,12 @@ class PlaybackController:
         elif msg.is_meta or msg.type in ['control_change', 'program_change']:
             return
         if msg.type == 'sysex':
-            self.model.send_midi_message(msg, outport)
-            return
+            if use_registration:
+                self.model.send_midi_message(msg, outport)
+                return
         if msg.type in ['note_on', 'note_off']:
             try:
                 new_msg = msg.copy()
-#TODO: This is a hack to get the channel to work. Need to fix this.
                 new_msg.channel = track_names[msg.channel]
                 if new_msg.channel == 0:
                     return

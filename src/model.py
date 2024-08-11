@@ -44,7 +44,7 @@ class PlaylistHymn:
         abbreviated_titles (str): Abbreviated titles of the hymn.
     """
 
-    def __init__(self, title, hymn_number, path, kind, is_hymn=True, markers=None, selected_markers=None, track_channels=None, track_names=None, time_signature=None, bpm=120, new_bpm=0, abbreviated_titles="", has_sysex=False):
+    def __init__(self, title, hymn_number, path, kind, is_hymn=True, markers=None, selected_markers=None, track_channels=None, track_names=None, time_signature=None, bpm=120, new_bpm=0, abbreviated_titles="", has_sysex=False, use_registration=False):
         self.title = title
         self.hymn_number = hymn_number
         self.path = path
@@ -61,6 +61,7 @@ class PlaylistHymn:
         self.is_prelude = False
         self.use_default = True
         self.has_sysex = has_sysex
+        self.use_registration = use_registration
 
     @classmethod
     def from_library_hymn(cls, library_hymn):
@@ -87,7 +88,8 @@ class PlaylistHymn:
             bpm=library_hymn.bpm,
             new_bpm=library_hymn.new_bpm,
             # abbreviated_titles=library_hymn.abbreviated_titles
-            has_sysex=library_hymn.has_sysex
+            has_sysex=library_hymn.has_sysex,
+            use_registration=library_hymn.use_registration
         )
 
     def to_dict(self, index):
@@ -115,7 +117,8 @@ class PlaylistHymn:
                 'time_signature': self.time_signature,
                 'bpm': self.bpm,
                 'new_bpm': self.new_bpm,
-                'has_sysex': self.has_sysex
+                'has_sysex': self.has_sysex,
+                'use_registration': self.use_registration
             }
         }
 
@@ -151,7 +154,8 @@ class PlaylistHymn:
             bpm=dictionary.get('bpm', 120),
             new_bpm=dictionary.get('new_bpm'),
             abbreviated_titles=key.split("-")[-2],
-            has_sysex=dictionary.get('has_sysex', False)
+            has_sysex=dictionary.get('has_sysex', False),
+            use_registration=dictionary.get('use_registration', False)
         )
 
 class LibraryHymn:
@@ -173,7 +177,7 @@ class LibraryHymn:
         new_bpm (int): New beats per minute.
     """
 
-    def __init__(self, title, hymn_number, path, kind, is_hymn=True, markers=None, track_channels=None, track_names=None, key_signature=None, time_signature=None, bpm=120, new_bpm=0, has_sysex=False):
+    def __init__(self, title, hymn_number, path, kind, is_hymn=True, markers=None, track_channels=None, track_names=None, key_signature=None, time_signature=None, bpm=120, new_bpm=0, has_sysex=False, use_registration=False):
         self.title = title
         self.hymn_number = hymn_number
         self.path = path
@@ -187,6 +191,7 @@ class LibraryHymn:
         self.bpm = bpm
         self.new_bpm = bpm if new_bpm == 0 else new_bpm
         self.has_sysex = has_sysex
+        self.use_registration = use_registration
 
     def to_dict(self):
         """
@@ -208,7 +213,8 @@ class LibraryHymn:
             'key_signature': self.key_signature,
             'bpm': self.bpm,
             'new_bpm': self.new_bpm,
-            'has_sysex': self.has_sysex
+            'has_sysex': self.has_sysex,
+            'use_registration': self.use_registration
         }
 
     @staticmethod
@@ -239,7 +245,8 @@ class LibraryHymn:
             key_signature=dictionary.get('key_signature'),
             bpm=dictionary.get('bpm', 120),
             new_bpm=dictionary.get('new_bpm', dictionary.get('bpm')),
-            has_sysex=dictionary.get('has_sysex', False)
+            has_sysex=dictionary.get('has_sysex', False),
+            use_registration=dictionary.get('use_registration', False)
         )
 
 class Marker:

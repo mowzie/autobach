@@ -10,13 +10,15 @@ else:
 
 PLAYLISTSAVESPATH = os.path.join(BASE_DIR, 'PlaylistSaves')
 HYMNPATH = os.path.join(BASE_DIR, "Hymns")
+ORGANISTHYMNPATH = os.path.join(BASE_DIR, "OrganistHymns")
 LITURGYPATH = os.path.join(BASE_DIR, "Liturgy")
 PSALMNOTESPATH = os.path.join(BASE_DIR, "PsalmNotes")
 OTHERPATH = os.path.join(BASE_DIR, "Other")
 
 kind_to_folder = {
+    "Organist Hymn": ORGANISTHYMNPATH,
     "Hymn": HYMNPATH,
     "DivineService": LITURGYPATH,
-    "PsalmNotes": PSALMNOTESPATH,
+    "Psalm Notes": PSALMNOTESPATH,
     "Other": OTHERPATH
 }

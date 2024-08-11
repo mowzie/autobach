@@ -181,9 +181,14 @@ class SongSelectionWindow:
             track_channels[int(input_channel)] = channel_var
         button_frame = tk.Frame(container)
         button_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
+        # add a checkbox for prerecorded registration
+        self.use_registration = tk.BooleanVar(value=True if hymn.has_sysex else False)
+        if (hymn.has_sysex):
+            registration_checkbutton = tk.Checkbutton(button_frame, text="Use Prerecorded Registration", variable=self.use_registration)
+            registration_checkbutton.pack()
+
         # Add a checkbox to use default organ stops for marker sections
         self.use_default_stops = tk.BooleanVar(value=True)
-
         default_checkbutton = tk.Checkbutton(button_frame, text="Use Default Stops", variable=self.use_default_stops)
         default_checkbutton.pack()
         # Add a label for the bpm
@@ -251,8 +256,10 @@ class SongSelectionWindow:
 
         if self.use_default_stops.get():
             for section in self.selected_sections:
-                if not hymn.has_sysex:
-                    section.stops = default_stops
+                if self.is_prelude == True:
+                        section.stops = self.controller.get_preset_stops("prelude")
+                if not self.use_registration.get():
+                        section.stops = default_stops
         else:
             for section in self.selected_sections:
                 # Show a new window to select the stops for this section
@@ -271,6 +278,7 @@ class SongSelectionWindow:
             channel_enum = Channels[channel_name]
             hymn.track_names[channel] = int(channel_enum.value)
         hymn.use_default_stops = self.use_default_stops.get()
+        hymn.use_registration = self.use_registration.get()
         self.hymn = hymn
         self.new_window.destroy()
 

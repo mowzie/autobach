@@ -190,7 +190,7 @@ def calculate_checksum(data):
     checksum = 128 - checksum
     return checksum
 
-NO_STOPS = "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+NO_STOPS = "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 09"
 HEADER = "41 10 30 12"
 FOOTER = "F7"
 def get_sysex(stops):
@@ -243,17 +243,8 @@ class DefaultSettings:
             choir.stops["UNDA_MARIS_II_8"],
         ]
         self.prelude_stop_settings = [
-            #great.stops["PRINCIPAL_8"],
             great.stops["GEMSHORN_8"],
-            great.stops["OCTAVA_4"],
-            great.stops["SWELL_TO_GREAT"],
-            swell.stops["GEIGEN_DIAPASON_8"],
             swell.stops["PRINCIPAL_4"],
-            swell.stops["BOURDON_8"],
-            swell.stops["FLUTE_TRAVERSIERE_4"],
-            pedal.stops["PRINCIPAL_16"],
-            pedal.stops["SUBBASS_16"],
-            pedal.stops["BOURDON_8"]
         ]
         self.grand_symphony_stop_settings = [
             great.stops["VIOLONE_16"],
