@@ -40,11 +40,9 @@ class MidiFile(mido.MidiFile):
                 playback_time = time.time() - start_time
                 duration_to_next_event = accumulated_time - playback_time
                 if duration_to_next_event > 0:
-                    print("Sleeping for", duration_to_next_event)
                     sleep(duration_to_next_event)
             else:
                 if msg.type == 'note_on' and msg.velocity > 0:
-                    print("Playing first message")
                     played_first_message = True
                     start_time = time.time()
 
