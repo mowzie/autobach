@@ -32,7 +32,7 @@ class Stop:
         self.hex_value = hex_value
         self.stop_type = StopType(stop_type)
         self.is_engaged = is_engaged
-        self.label_text = label_text  # new property for label text
+        self.label_text = label_text
 
     def to_dict(self):
         return {
@@ -51,6 +51,17 @@ class Manual:
     def add_stop(self, stop_name, stop):
         self.stops[stop_name] = stop
 
+class Control:
+    def __init__(self, name, channel, value):
+        self.name = name
+        self.channel = channel
+        self.value = value
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "value": self.value
+        }
 
 class Choir(Enum):
     SPITZ_PRINCIPAL_8 = "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 08 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00" #principal
@@ -64,6 +75,7 @@ class Choir(Enum):
     CROMORNE_8 =        "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00" #reed
     SWELL_TO_CHOIR =    "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 00 00 00 00 00 00 00 00 04 00 00 00 00"
     FANFARE_TRUMPET_8 = "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00" #reed
+    TREMELO =           "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 09 00 00"
             #TREMULANT = "F0AH04DE" #principal mix
     #Man II
 class Great(Enum):
@@ -78,6 +90,7 @@ class Great(Enum):
     TRUMPET_8 =         "01 00 00 00 00 00 00 00 08 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00" #reed
     SWELL_TO_GREAT =    "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 08 00 00 00 00 00"
     CHOIR_TO_GREAT =    "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00 00 00"
+    TREMELO =           "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 09 00 00"
     #    TREMULANT = "F0AH00C9" #principal mix
     #    CHIMES = "F0AH00CA"
     #    ZIMBELSTERN = "F0AH00CB"
@@ -93,6 +106,7 @@ class Swell(Enum):
     PLEIN_JEU_IV =        "01 00 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"  #principal
     BASSON_16 =           "01 00 00 00 00 00 00 00 00 00 00 00 00 00 08 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"   #reed
     HAUTBOIS_8 =          "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"        #reed
+    TREMELO =             "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 08 09 00 00"
         # TREMULANT = "F0AH00EC" #principal mix
 class Pedal(Enum):
     MONTRE_32 =       "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 00 00 00 00 00 00 00 00 00 09 00 00"
@@ -131,6 +145,7 @@ great.add_stop("MIXTUR_IV", Stop("MIXTUR_IV", Great.MIXTUR_IV.value, StopType.PR
 great.add_stop("TRUMPET_8", Stop("TRUMPET_8", Great.TRUMPET_8.value, StopType.REED.value, False, "Trumpet\n8"))
 great.add_stop("SWELL_TO_GREAT", Stop("SWELL_TO_GREAT", Great.SWELL_TO_GREAT.value, StopType.COUPLER.value, False, "III/II"))
 great.add_stop("CHOIR_TO_GREAT", Stop("CHOIR_TO_GREAT", Great.CHOIR_TO_GREAT.value, StopType.COUPLER.value, False, "I/II"))
+great.add_stop("TREMELO", Stop("TREMELO", Great.TREMELO.value, StopType.COUPLER.value, False, "Tremelo"))
 
 
 # Add the stops to the Swell manual
@@ -145,6 +160,7 @@ swell.add_stop("TIERCE_1_3_5", Stop("TIERCE_1_3_5", Swell.TIERCE_1_3_5.value, St
 swell.add_stop("PLEIN_JEU_IV", Stop("PLEIN_JEU_IV", Swell.PLEIN_JEU_IV.value, StopType.PRINCIPAL.value, False, "Plein\nJeu\nIV"))
 swell.add_stop("BASSON_16", Stop("BASSON_16", Swell.BASSON_16.value, StopType.REED.value, False, "Basson\n16"))
 swell.add_stop("HAUTBOIS_8", Stop("HAUTBOIS_8", Swell.HAUTBOIS_8.value, StopType.REED.value, False, "Hautbois\n8"))
+swell.add_stop("TREMELO", Stop("TREMELO", Swell.TREMELO.value, StopType.COUPLER.value, False, "Tremelo"))
 
 
 # Add the stops to the Pedal manual
@@ -173,6 +189,7 @@ choir.add_stop("MIXTUR_III", Stop("MIXTUR_III", Choir.MIXTUR_III.value, StopType
 choir.add_stop("CROMORNE_8", Stop("CROMORNE_8", Choir.CROMORNE_8.value, StopType.REED.value, False, "Cromorne\n8"))
 choir.add_stop("SWELL_TO_CHOIR", Stop("SWELL_TO_CHOIR", Choir.SWELL_TO_CHOIR.value, StopType.COUPLER.value, False, "III/I"))
 choir.add_stop("FANFARE_TRUMPET_8", Stop("FANFARE_TRUMPET_8", Choir.FANFARE_TRUMPET_8.value, StopType.REED.value, False, "Fanfare\nTrumpet\n8"))
+choir.add_stop("TREMELO", Stop("TREMELO", Choir.TREMELO.value, StopType.COUPLER.value, False, "Tremelo"))
 
 # Add the Choir manual to the manuals dictionary
 manuals["Choir"] = choir
@@ -190,11 +207,26 @@ def calculate_checksum(data):
     checksum = 128 - checksum
     return checksum
 
-NO_STOPS = "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 09"
+turn_off_0 = "F0 41 10 30 12 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 09 00 00 76 F7"
+turn_off_1 = "F0 41 10 30 12 70 00 10 01 57 01 40 01 71 01 16 00 00 40 40 40 44 00 01 00 00 40 40 59 F7"
+turn_off_2 = "F0 41 10 30 12 71 00 10 01 57 01 40 01 61 01 32 00 00 40 40 40 45 00 01 00 00 40 40 4B F7"
+turn_off_3 = "F0 41 10 30 12 72 00 10 01 57 01 40 01 18 01 1E 00 00 40 40 40 43 00 01 00 00 40 40 29 F7"
+turn_off_4 = "F0 41 10 30 12 73 00 10 01 57 01 40 01 19 01 28 00 00 40 43 40 40 00 01 00 00 40 40 1D F7"
+turn_off_5 = "F0 41 10 30 12 74 00 10 01 57 01 40 01 18 01 2B 01 64 40 40 40 40 00 01 00 00 40 40 38 F7"
+turn_off_6 = "F0 41 10 30 12 75 00 10 01 57 01 40 01 22 01 27 01 64 40 45 45 3A 00 01 00 00 40 40 2D F7"
+turn_off_7 = "F0 41 10 30 12 76 00 10 01 57 01 40 01 3D 01 32 00 00 40 46 40 3C 00 01 00 00 40 40 6D F7"
+turn_off_8 = "F0 41 10 30 12 77 00 10 01 57 01 40 01 00 01 32 00 00 40 40 40 40 00 01 00 00 40 40 2B F7"
+turn_off_list = [turn_off_0, turn_off_1, turn_off_2, turn_off_3, turn_off_4, turn_off_5, turn_off_6, turn_off_7, turn_off_8]
+
+def get_turn_off_messages():
+    return turn_off_list
+
+
+NO_STOPS = "01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 09 00 00"
 HEADER = "41 10 30 12"
 FOOTER = "F7"
-def get_sysex(stops):
 
+def get_sysex(stops):
     sysex = bytes.fromhex("F0" + HEADER)
     data = bytes.fromhex(NO_STOPS)
     for stop in stops:
@@ -238,9 +270,7 @@ class DefaultSettings:
         self.intro_stop_settings = [
             great.stops["VIOLONE_16"],
             great.stops["GEMSHORN_8"],
-            pedal.stops["CHOIR_TO_PEDAL"],
-            choir.stops["STILL_GEDACKT_8"],
-            choir.stops["UNDA_MARIS_II_8"],
+            swell.stops["PRINCIPAL_4"],
         ]
         self.prelude_stop_settings = [
             great.stops["GEMSHORN_8"],
@@ -331,141 +361,5 @@ class DefaultSettings:
         elif preset == "g5":
             return self.majestic_mix_stop_settings
         else:
+            print("setting default settings")
             return self.default_stop_settings
-        
-program_change_dict = {}
-program_changes = '''1	Acoustic Grand Piano
-2	Bright Acoustic Piano
-3	Electric Grand Piano
-4	Honky-tonk Piano
-5	Electric Piano 1 (Rhodes Piano)
-6	Electric Piano 2 (Chorused Piano)
-7	Harpsichord
-8	Clavinet
-9	Celesta
-10	Glockenspiel
-11	Music Box
-12	Vibraphone
-13	Marimba
-14	Xylophone
-15	Tubular Bells
-16	Dulcimer (Santur)
-17	Drawbar Organ (Hammond)
-18	Percussive Organ
-19	Rock Organ
-20	Church Organ
-21	Reed Organ
-22	Accordion (French)
-23	Harmonica
-24	Tango Accordion (Band neon)
-25	Acoustic Guitar (nylon)
-26	Acoustic Guitar (steel)
-27	Electric Guitar (jazz)
-28	Electric Guitar (clean)
-29	Electric Guitar (muted)
-30	Overdriven Guitar
-31	Distortion Guitar
-32	Guitar harmonics
-33	Acoustic Bass
-34	Electric Bass (fingered)
-35	Electric Bass (picked)
-36	Fretless Bass
-37	Slap Bass 1
-38	Slap Bass 2
-39	Synth Bass 1
-40	Synth Bass 2
-41	Violin
-42	Viola
-43	Cello
-44	Contrabass
-45	Tremolo Strings
-46	Pizzicato Strings
-47	Orchestral Harp
-48	Timpani
-49	String Ensemble 1 (strings)
-50	String Ensemble 2 (slow strings)
-51	SynthStrings 1
-52	SynthStrings 2
-53	Choir Aahs
-54	Voice Oohs
-55	Synth Voice
-56	Orchestra Hit
-57	Trumpet
-58	Trombone
-59	Tuba
-60	Muted Trumpet
-61	French Horn
-62	Brass Section
-63	SynthBrass 1
-64	SynthBrass 2
-65	Soprano Sax
-66	Alto Sax
-67	Tenor Sax
-68	Baritone Sax
-69	Oboe
-70	English Horn
-71	Bassoon
-72	Clarinet
-73	Piccolo
-74	Flute
-75	Recorder
-76	Pan Flute
-77	Blown Bottle
-78	Shakuhachi
-79	Whistle
-80	Ocarina
-81	Lead 1 (square wave)
-82	Lead 2 (sawtooth wave)
-83	Lead 3 (calliope)
-84	Lead 4 (chiffer)
-85	Lead 5 (charang)
-86	Lead 6 (voice solo)
-87	Lead 7 (fifths)
-88	Lead 8 (bass + lead)
-89	Pad 1 (new age Fantasia)
-90	Pad 2 (warm)
-91	Pad 3 (polysynth)
-92	Pad 4 (choir space voice)
-93	Pad 5 (bowed glass)
-94	Pad 6 (metallic pro)
-95	Pad 7 (halo)
-96	Pad 8 (sweep)
-97	FX 1 (rain)
-98	FX 2 (soundtrack)
-99	FX 3 (crystal)
-100	FX 4 (atmosphere)
-101	FX 5 (brightness)
-102	FX 6 (goblins)
-103	FX 7 (echoes, drops)
-104	FX 8 (sci-fi, star theme)
-105	Sitar
-106	Banjo
-107	Shamisen
-108	Koto
-109	Kalimba
-110	Bag pipe
-111	Fiddle
-112	Shanai
-113	Tinkle Bell
-114	Agogo
-115	Steel Drums
-116	Woodblock
-117	Taiko Drum
-118	Melodic Tom
-119	Synth Drum
-120	Reverse Cymbal
-121	Guitar Fret Noise
-122	Breath Noise
-123	Seashore
-124	Bird Tweet
-125	Telephone Ring
-126	Helicopter
-127	Applause
-128	Gunshot'''
-
-lines = program_changes.split('\n')
-for line in lines:
-    parts = line.split('\t')
-    program_number = int(parts[0])
-    program_name = parts[1]
-    program_change_dict[program_number] = program_name

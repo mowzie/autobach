@@ -44,7 +44,7 @@ class PlaylistHymn:
         abbreviated_titles (str): Abbreviated titles of the hymn.
     """
 
-    def __init__(self, title, hymn_number, path, kind, is_hymn=True, markers=None, selected_markers=None, track_channels=None, track_names=None, time_signature=None, bpm=120, new_bpm=0, abbreviated_titles="", has_sysex=False, use_registration=False):
+    def __init__(self, title, hymn_number, path, kind, is_hymn=True, markers=None, selected_markers=None, track_names=None, time_signature=None, bpm=120, new_bpm=0, abbreviated_titles="", has_sysex=False, use_registration=False, is_prelude=False):
         self.title = title
         self.hymn_number = hymn_number
         self.path = path
@@ -52,8 +52,7 @@ class PlaylistHymn:
         self.is_hymn = is_hymn
         self.markers = markers or []
         self.selected_markers = selected_markers or []
-    #    self.track_channels = track_channels or {}  # Attribute for the tracks
-        self.track_names = track_names or {}  # New attribute for the track channels
+        self.track_names = track_names or {}
         self.time_signature = time_signature or {}
         self.bpm = bpm
         self.new_bpm = bpm if new_bpm == 0 else new_bpm
@@ -62,6 +61,7 @@ class PlaylistHymn:
         self.use_default = True
         self.has_sysex = has_sysex
         self.use_registration = use_registration
+        self.is_prelude = is_prelude
 
     @classmethod
     def from_library_hymn(cls, library_hymn):
@@ -81,15 +81,13 @@ class PlaylistHymn:
             kind=library_hymn.kind,
             is_hymn=library_hymn.is_hymn,
             markers=library_hymn.markers,
-            # selected_markers=library_hymn.selected_markers,
-            track_channels=library_hymn.track_channels,
             track_names=library_hymn.track_names,
             time_signature=library_hymn.time_signature,
             bpm=library_hymn.bpm,
             new_bpm=library_hymn.new_bpm,
-            # abbreviated_titles=library_hymn.abbreviated_titles
             has_sysex=library_hymn.has_sysex,
-            use_registration=library_hymn.use_registration
+            use_registration=library_hymn.use_registration,
+            is_prelude=library_hymn.is_prelude
         )
 
     def to_dict(self, index):
@@ -112,13 +110,13 @@ class PlaylistHymn:
                 'is_hymn': self.is_hymn,
                 'markers': [marker.to_dict() for marker in self.markers],
                 'selected_markers': [marker.to_dict() for marker in self.selected_markers],
-                'track_channels': self.track_channels,
                 'track_names': self.track_names,
                 'time_signature': self.time_signature,
                 'bpm': self.bpm,
                 'new_bpm': self.new_bpm,
                 'has_sysex': self.has_sysex,
-                'use_registration': self.use_registration
+                'use_registration': self.use_registration,
+                'is_prelude': self.is_prelude
             }
         }
 
@@ -148,14 +146,14 @@ class PlaylistHymn:
             is_hymn=dictionary['is_hymn'],
             markers=markers,
             selected_markers=selected_markers,
-            track_channels=dictionary.get('track_channels', {}),
             track_names=track_names,
             time_signature=dictionary.get('time_signature', {}),
             bpm=dictionary.get('bpm', 120),
             new_bpm=dictionary.get('new_bpm'),
             abbreviated_titles=key.split("-")[-2],
             has_sysex=dictionary.get('has_sysex', False),
-            use_registration=dictionary.get('use_registration', False)
+            use_registration=dictionary.get('use_registration', False),
+            is_prelude=dictionary.get('is_prelude', False)
         )
 
 class LibraryHymn:
@@ -177,14 +175,13 @@ class LibraryHymn:
         new_bpm (int): New beats per minute.
     """
 
-    def __init__(self, title, hymn_number, path, kind, is_hymn=True, markers=None, track_channels=None, track_names=None, key_signature=None, time_signature=None, bpm=120, new_bpm=0, has_sysex=False, use_registration=False):
+    def __init__(self, title, hymn_number, path, kind, is_hymn=True, markers=None, track_channels=None, track_names=None, key_signature=None, time_signature=None, bpm=120, new_bpm=0, has_sysex=False, use_registration=False, is_prelude=False):
         self.title = title
         self.hymn_number = hymn_number
         self.path = path
         self.kind = kind
         self.is_hymn = is_hymn
         self.markers = markers or []
-        self.track_channels = track_channels or {}  # Attribute for the tracks
         self.track_names = track_names or {}
         self.time_signature = time_signature or {}
         self.key_signature = key_signature
@@ -192,6 +189,7 @@ class LibraryHymn:
         self.new_bpm = bpm if new_bpm == 0 else new_bpm
         self.has_sysex = has_sysex
         self.use_registration = use_registration
+        self.is_prelude = is_prelude
 
     def to_dict(self):
         """
@@ -207,14 +205,14 @@ class LibraryHymn:
             'kind': self.kind,
             'is_hymn': self.is_hymn,
             'markers': [marker.to_dict() for marker in self.markers],
-            'track_channels': self.track_channels,
             'track_names': self.track_names,
             'time_signature': self.time_signature,
             'key_signature': self.key_signature,
             'bpm': self.bpm,
             'new_bpm': self.new_bpm,
             'has_sysex': self.has_sysex,
-            'use_registration': self.use_registration
+            'use_registration': self.use_registration,
+            'is_prelude': self.is_prelude
         }
 
     @staticmethod
@@ -229,9 +227,6 @@ class LibraryHymn:
             LibraryHymn: The created LibraryHymn object.
         """
         markers = [Marker(**marker_dict) for marker_dict in dictionary.get('markers', [])]
-        track_channels = dictionary.get('track_channels', {})
-        track_channels = {int(k): v for k, v in track_channels.items()}  # Convert keys to integers
-
         return LibraryHymn(
             title=dictionary['title'],
             hymn_number=dictionary['hymn_number'],
@@ -239,14 +234,14 @@ class LibraryHymn:
             kind=dictionary['kind'],
             is_hymn=dictionary['is_hymn'],
             markers=markers,
-            track_channels=track_channels,  # Use the dictionary with integer keys
             track_names=dictionary.get('track_names', {}),
             time_signature=dictionary.get('time_signature', {}),
             key_signature=dictionary.get('key_signature'),
             bpm=dictionary.get('bpm', 120),
             new_bpm=dictionary.get('new_bpm', dictionary.get('bpm')),
             has_sysex=dictionary.get('has_sysex', False),
-            use_registration=dictionary.get('use_registration', False)
+            use_registration=dictionary.get('use_registration', False),
+            is_prelude=dictionary.get('is_prelude', False)
         )
 
 class Marker:
@@ -499,6 +494,8 @@ class OrganPlayerModel:
         for channel in range(11, 15):
             for note in range(0, 128):
                 outport.send(mido.Message('note_off', channel=channel, note=note, velocity=0, time=0))
+        for msg in get_turn_off_messages():
+            outport.send(mido.Message.from_hex(msg))
 
     def close_midi_output(self, outport):
         """

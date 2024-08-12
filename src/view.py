@@ -145,6 +145,7 @@ class LibraryWindow(tk.Toplevel):
         phrase = self.filter_entry.get()
         for i in self.library_treeview.get_children():
             self.library_treeview.delete(i)
+        self.parent_items.clear()
         hymn_list = {}
         for hymn in self.controller.get_library().values():
             if phrase.lower() in hymn.title.lower() or phrase.lower() in hymn.hymn_number.lower():
@@ -236,21 +237,28 @@ class LibraryWindow(tk.Toplevel):
             tag = "oddrow" if i % 2 else "evenrow"
         else:
             tag = "notFound"
+        print(f"Adding hymn: {hymn.hymn_number}, kind: {hymn.kind}, path: {hymn.path}")
+        print(f"Current parent items: {self.parent_items}")
 
         if hymn.kind == "DivineService":
             if hymn.hymn_number not in self.parent_items:
                 setting_number = hymn.hymn_number.replace("DS", "Setting ")
-                self.parent_items[hymn.hymn_number] = self.library_treeview.insert("", "end", values=("",  setting_number, "", "", "", ""), tags=("parent",))
+                print(f"Creating new parent item for hymn number: {hymn.hymn_number}")
+                self.parent_items[hymn.hymn_number] = self.library_treeview.insert("", "end", values=("", setting_number, "", "", "", ""), tags=("parent",))
                 self.library_treeview.item(self.parent_items[hymn.hymn_number], open=True)
-                self.library_treeview.insert(self.parent_items[hymn.hymn_number], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"  ), tags=(tag,))
+                self.library_treeview.insert(self.parent_items[hymn.hymn_number], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
             else:
+                setting_number = hymn.hymn_number.replace("DS", "Setting ")
+                print(f"Adding hymn to existing parent item for hymn number: {hymn.hymn_number}")
                 self.library_treeview.insert(self.parent_items[hymn.hymn_number], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
         else:
             if hymn.kind not in self.parent_items:
+                print(f"Creating new parent item for hymn kind: {hymn.kind}")
                 self.parent_items[hymn.kind] = self.library_treeview.insert("", "end", values=("", f"{hymn.kind}", "", "", "", ""), tags=("parent",))
                 self.library_treeview.item(self.parent_items[hymn.kind], open=True)
-                self.library_treeview.insert(self.parent_items[hymn.kind], "end", values=(hymn.hymn_number, hymn.title, "",  hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
+                self.library_treeview.insert(self.parent_items[hymn.kind], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
             else:
+                print(f"Adding hymn to existing parent item for hymn kind: {hymn.kind}")
                 self.library_treeview.insert(self.parent_items[hymn.kind], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
 
 
@@ -603,6 +611,12 @@ class OrganPlayerView(tk.Tk):
             if current_index < total_items - 1:
                 next_item = self.playlist_treeview.get_children()[current_index + 1]
                 self.playlist_treeview.selection_set(next_item)
+                values = self.playlist_treeview.item(next_item, "values")
+                hymn = self.controller.get_hymn_from_playlist(values)
+                if hymn is None:
+                    return
+                if hymn.is_prelude:
+                    self.controller.play_file(hymn, self.update_progress)
 
     def update_progress(self, value):
         self.section_progress_bar['value'] = value

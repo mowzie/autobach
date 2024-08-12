@@ -243,6 +243,9 @@ class SongSelectionWindow:
 
         self.controller.selected_stops = None
         default_stops = self.controller.get_default_stops()
+        hymn.is_prelude = self.is_prelude.get()
+        hymn.use_default_stops = self.use_default_stops.get()
+        hymn.use_registration = self.use_registration.get()
 
         if self.context == "library_edit":
             for marker in hymn.markers:
@@ -254,12 +257,15 @@ class SongSelectionWindow:
             markers = self.controller.sort_markers(markers)
 
 
-        if self.use_default_stops.get():
+        if hymn.use_default_stops == True:
             for section in self.selected_sections:
-                if self.is_prelude == True:
+                if hymn.is_prelude == True:
                         section.stops = self.controller.get_preset_stops("prelude")
-                if not self.use_registration.get():
-                        section.stops = default_stops
+                elif self.use_registration.get() == False:
+                        if section.title == "Intro":
+                            section.stops = self.controller.get_preset_stops("intro")
+                        else:
+                            section.stops = default_stops
         else:
             for section in self.selected_sections:
                 # Show a new window to select the stops for this section
@@ -277,8 +283,8 @@ class SongSelectionWindow:
             channel_name = track_channels[int(channel)].get()
             channel_enum = Channels[channel_name]
             hymn.track_names[channel] = int(channel_enum.value)
-        hymn.use_default_stops = self.use_default_stops.get()
-        hymn.use_registration = self.use_registration.get()
+        
+
         self.hymn = hymn
         self.new_window.destroy()
 
