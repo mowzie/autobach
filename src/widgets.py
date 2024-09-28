@@ -9,7 +9,7 @@ PLAYLIST_TEXT = "#f8f9fa"
 LIBRARY_PARENT = "#ff7851"
 LIBRARY_SELECTED = "#e99002"
 
-#pylint: disable=line-too-long
+# pylint: disable=line-too-long
 # pylint: disable=missing-module-docstring
 # pylint: disable=missing-class-docstring
 # pylint: disable=missing-function-docstring
@@ -18,7 +18,7 @@ class ScrolledTreeView(ttk.Treeview):
     def __init__(self, parent, *args, **kwargs):
         self.frame = tk.Frame(parent)  # Create a new frame to hold the Treeview and Scrollbar
         style = ttk.Style()
-        style.configure('Treeview', rowheight=50)  # Increase row height
+        style.configure('Treeview', rowheight=45)  # Increase row height
         style.configure("Vertical.TScrollbar", arrowsize=30)
 
         style.map('Treeview',

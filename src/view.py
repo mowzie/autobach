@@ -95,7 +95,9 @@ class LibraryWindow(tk.Toplevel):
         self.parent_items = {}
 
         self.title("Library")
-        self.geometry("500x800")
+      #  self.geometry("500x800")
+        self.minsize(120, 450)
+        self.maxsize(1024, 600)
 
         container = ttk.Frame(self)
         container.pack(side="top", fill="both",padx=10, pady=10, expand=True)
@@ -103,7 +105,7 @@ class LibraryWindow(tk.Toplevel):
         self.library_frame = tk.Frame(container, padx=10, pady=10)
         self.library_frame.pack_forget()
 
-        self.library_treeview = ScrolledTreeView(self.library_frame, columns=("Number", "Title", "ParentTitle", "Kind", "Key", "TimeSignature"), show="tree headings")
+        self.library_treeview = ScrolledTreeView(self.library_frame, columns=("Number", "Title", "ParentTitle", "Kind", "Key", "TimeSignature"), show="tree headings", height=8)
         self.library_treeview.heading("Number", text="#", command=lambda: self.treeview_sort_column("Number"))
         self.library_treeview.heading("Title", text="Title", command=lambda: self.treeview_sort_column("Title"))
         self.library_treeview.heading("Kind", text="Kind", command=lambda: self.treeview_sort_column("Kind"))
@@ -124,7 +126,7 @@ class LibraryWindow(tk.Toplevel):
         self.edit_button = ttk.Button(self, text="Edit Song Defaults", command=self.edit_song)
         self.progress = ttk.Progressbar(container, orient="horizontal", length=200, mode="determinate")
         self.progress.place(relx=0.5, rely=0.45, anchor='center')
-        self.library_treeview.bind("<Double-1>", lambda e: self.add_to_playlist())
+        self.library_treeview.bind("<Double-1>", lambda _: self.add_to_playlist())
         self.loading_label = tk.Label(container, text="Refreshing library...")
         self.loading_label.place(relx=0.5, rely=0.5, anchor='center')
         self.menu_bar = tk.Menu(self)
@@ -133,6 +135,19 @@ class LibraryWindow(tk.Toplevel):
         self.config(menu=self.menu_bar)
       #  self.filemenu.add_command(label="Refresh Library", command=self.refresh_library)
         self.filemenu.add_command(label="Import Song", command=self.import_song)
+
+        # self.foo = ttk.Frame(container)
+        # ttk.Label(self.foo, text="Add Full Divine Service Settings").pack()
+        # DS1 = ttk.Button(self.foo, text="Add DS1", command=lambda: self.add_ds_setting("DS1"))
+        # DS2 = ttk.Button(self.foo, text="Add DS2", command=lambda: self.add_ds_setting("DS2"))
+        # DS3 = ttk.Button(self.foo, text="Add DS3", command=lambda: self.add_ds_setting("DS3"))
+        # #self.foo.DS4 = ttk.Button(self.foo, text="Add DS4", command=lambda: self.add_ds_setting("DS4"))
+        # #self.foo.DS5 = ttk.Button(self.foo, text="Add DS5", command=lambda: self.add_ds_setting("DS5"))
+        # DS1.pack()
+        # DS2.pack()
+        # DS3.pack()
+        
+        # self.foo.pack(side="left", fill="y", expand=True)
 
         self.controller.load_library_files(reloadCache=False, total_files_callback=self.set_total_files, update_progress_callback=self.update_progress)
         self.withdraw()  # Hide the window until the library is loaded
@@ -237,28 +252,28 @@ class LibraryWindow(tk.Toplevel):
             tag = "oddrow" if i % 2 else "evenrow"
         else:
             tag = "notFound"
-        print(f"Adding hymn: {hymn.hymn_number}, kind: {hymn.kind}, path: {hymn.path}")
-        print(f"Current parent items: {self.parent_items}")
+        #print(f"Adding hymn: {hymn.hymn_number}, kind: {hymn.kind}, path: {hymn.path}")
+        #print(f"Current parent items: {self.parent_items}")
 
         if hymn.kind == "DivineService":
             if hymn.hymn_number not in self.parent_items:
                 setting_number = hymn.hymn_number.replace("DS", "Setting ")
-                print(f"Creating new parent item for hymn number: {hymn.hymn_number}")
+                #print(f"Creating new parent item for hymn number: {hymn.hymn_number}")
                 self.parent_items[hymn.hymn_number] = self.library_treeview.insert("", "end", values=("", setting_number, "", "", "", ""), tags=("parent",))
                 self.library_treeview.item(self.parent_items[hymn.hymn_number], open=True)
                 self.library_treeview.insert(self.parent_items[hymn.hymn_number], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
             else:
                 setting_number = hymn.hymn_number.replace("DS", "Setting ")
-                print(f"Adding hymn to existing parent item for hymn number: {hymn.hymn_number}")
+                #print(f"Adding hymn to existing parent item for hymn number: {hymn.hymn_number}")
                 self.library_treeview.insert(self.parent_items[hymn.hymn_number], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
         else:
             if hymn.kind not in self.parent_items:
-                print(f"Creating new parent item for hymn kind: {hymn.kind}")
+                #print(f"Creating new parent item for hymn kind: {hymn.kind}")
                 self.parent_items[hymn.kind] = self.library_treeview.insert("", "end", values=("", f"{hymn.kind}", "", "", "", ""), tags=("parent",))
                 self.library_treeview.item(self.parent_items[hymn.kind], open=True)
                 self.library_treeview.insert(self.parent_items[hymn.kind], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
             else:
-                print(f"Adding hymn to existing parent item for hymn kind: {hymn.kind}")
+                #print(f"Adding hymn to existing parent item for hymn kind: {hymn.kind}")
                 self.library_treeview.insert(self.parent_items[hymn.kind], "end", values=(hymn.hymn_number, hymn.title, "", hymn.kind, hymn.key_signature, f"{hymn.time_signature['numerator']}/{hymn.time_signature['denominator']}"), tags=(tag,))
 
 
@@ -283,8 +298,6 @@ class OrganPlayerView(tk.Tk):
         self.minsize(120, 450)
         self.maxsize(1024, 600)
         self.resizable(0,  0)
-        icon_path = os.path.join(BASE_DIR, 'images', 'organ.ico')
-        self.iconbitmap(icon_path)
         self.title("AutoBach Organ Player")
         self.configure(relief="ridge")
 
