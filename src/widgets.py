@@ -184,13 +184,15 @@ class SongSelectionWindow:
         # add a checkbox for prerecorded registration
         self.use_registration = tk.BooleanVar(value=True if hymn.has_sysex else False)
         if (hymn.has_sysex):
-            registration_checkbutton = tk.Checkbutton(button_frame, text="Use Prerecorded Registration", variable=self.use_registration)
-            registration_checkbutton.pack()
+            self.registration_checkbutton = tk.Checkbutton(button_frame, text="Use Prerecorded Registration", variable=self.use_registration, command=self.toggle_default_checkbutton)
+            self.registration_checkbutton.pack()
 
         # Add a checkbox to use default organ stops for marker sections
         self.use_default_stops = tk.BooleanVar(value=True)
-        default_checkbutton = tk.Checkbutton(button_frame, text="Use Default Stops", variable=self.use_default_stops)
-        default_checkbutton.pack()
+        self.default_checkbutton = tk.Checkbutton(button_frame, text="Use Default Registration", variable=self.use_default_stops)
+        self.default_checkbutton.pack()
+        if hymn.has_sysex:
+            self.default_checkbutton.config(state=tk.DISABLED)
         # Add a label for the bpm
         bpm_label = tk.Label(right_frame, text="bpm")
         bpm_label.grid(row=len(hymn.track_names), column=2, sticky="w")
@@ -203,7 +205,7 @@ class SongSelectionWindow:
         bpm_entry.grid(row=len(hymn.track_names), column=3, sticky="w")
         default_bpm_checkbutton = tk.Checkbutton(right_frame, text="Use Default BPM", variable=self.use_default_bpm, command=lambda: self.toggle_bpm_entry(hymn))
         default_bpm_checkbutton.grid(row=len(hymn.track_names)+1, column=3, sticky="w")
-        is_prelude_checkbutton = tk.Checkbutton(right_frame, text="Is Prelude", variable=self.is_prelude)
+        is_prelude_checkbutton = tk.Checkbutton(right_frame, text="Is Prelude", variable=self.is_prelude, command=self.toggle_prelude)
         is_prelude_checkbutton.grid(row=len(hymn.track_names)+2, column=3, sticky="w")
 
         if (hymn.new_bpm == hymn.bpm):
@@ -218,6 +220,26 @@ class SongSelectionWindow:
         cancel_button.pack()
         self.new_window.bind('<Escape>', lambda event: self.new_window.destroy())
         self.new_window.wait_window(self.new_window)
+
+    def toggle_prelude(self):
+        if self.is_prelude.get():
+            self.use_default_stops.set(False)
+            self.default_checkbutton.config(state=tk.DISABLED)
+            if self.registration_checkbutton.winfo_ismapped():
+                self.use_registration.set(False)
+                self.registration_checkbutton.config(state=tk.DISABLED)
+        else:
+            self.default_checkbutton.config(state=tk.NORMAL)
+            if self.registration_checkbutton.winfo_ismapped():
+                self.registration_checkbutton.config(state=tk.NORMAL)
+
+    def toggle_default_checkbutton(self):
+        if self.use_registration.get():
+            self.default_checkbutton.config(state=tk.DISABLED)
+            self.use_default_stops.set(True)
+        else:
+            self.default_checkbutton.config(state=tk.NORMAL)
+
 
         # Define the function to be called when the value of the StringVar changes
     def on_bpm_var_change(self, hymn, bpm_var, default_bpm_checkbutton):
@@ -257,7 +279,7 @@ class SongSelectionWindow:
             markers = self.controller.sort_markers(markers)
 
 
-        if hymn.use_default_stops == True:
+        if hymn.use_default_stops == True or hymn.is_prelude == True:
             for section in self.selected_sections:
                 if hymn.is_prelude == True:
                         section.stops = self.controller.get_preset_stops("prelude")
