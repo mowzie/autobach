@@ -68,7 +68,6 @@ class ImportSongWindow(tk.Toplevel):
             _, _ , hymn, _ = self.controller.load_song(file_path)
             return hymn
 
-
     def import_song(self, hymn):
         song_number = self.song_number_entry.get()
         song_name = self.song_name_entry.get()
@@ -136,23 +135,38 @@ class LibraryWindow(tk.Toplevel):
       #  self.filemenu.add_command(label="Refresh Library", command=self.refresh_library)
         self.filemenu.add_command(label="Import Song", command=self.import_song)
 
-        # self.foo = ttk.Frame(container)
-        # ttk.Label(self.foo, text="Add Full Divine Service Settings").pack()
-        # DS1 = ttk.Button(self.foo, text="Add DS1", command=lambda: self.add_ds_setting("DS1"))
-        # DS2 = ttk.Button(self.foo, text="Add DS2", command=lambda: self.add_ds_setting("DS2"))
-        # DS3 = ttk.Button(self.foo, text="Add DS3", command=lambda: self.add_ds_setting("DS3"))
-        # #self.foo.DS4 = ttk.Button(self.foo, text="Add DS4", command=lambda: self.add_ds_setting("DS4"))
-        # #self.foo.DS5 = ttk.Button(self.foo, text="Add DS5", command=lambda: self.add_ds_setting("DS5"))
-        # DS1.pack()
-        # DS2.pack()
-        # DS3.pack()
+        self.add_service_container = ttk.Frame(container)
+        ttk.Label(self.add_service_container, text="Add Full Divine Service Settings").pack()
+        #DS1 = ttk.Button(self.foo, text="Add DS1", command=lambda: self.add_ds_setting("DS1"))
+        DS2 = ttk.Button(self.add_service_container, text="Add DS2", command=lambda: self.add_ds_setting("DS2"))
+        DS3 = ttk.Button(self.add_service_container, text="Add DS3", command=lambda: self.add_ds_setting("DS3"))
+        #self.foo.DS4 = ttk.Button(self.foo, text="Add DS4", command=lambda: self.add_ds_setting("DS4"))
+        #self.foo.DS5 = ttk.Button(self.foo, text="Add DS5", command=lambda: self.add_ds_setting("DS5"))
+        #DS1.pack()
+        DS2.pack()
+        DS3.pack()
         
-        # self.foo.pack(side="left", fill="y", expand=True)
+        self.add_service_container.pack(side="left", fill="y", expand=True)
 
         self.controller.load_library_files(reloadCache=False, total_files_callback=self.set_total_files, update_progress_callback=self.update_progress)
         self.withdraw()  # Hide the window until the library is loaded
         self.protocol('WM_DELETE_WINDOW', self.hide)
-        
+
+    def add_ds_setting(self, setting):
+        parent_items = self.library_treeview.get_children()
+        added_item = False
+        for item in parent_items:
+            header = self.library_treeview.item(item, "values")
+            if header[1].startswith("Setting"):
+                child_items = self.library_treeview.get_children(item)
+                for child_item in child_items:
+                    song = self.library_treeview.item(child_item, "values")
+                    if song[0] == setting:
+                        added_item = True
+                        hymn = self.controller.get_hymn_from_library_to_playlist(song)
+                        self.controller.add_to_playlist(hymn)          
+        self.hide()
+
     def import_song(self):
         self.import_song_window = ImportSongWindow(self)
 
@@ -237,7 +251,6 @@ class LibraryWindow(tk.Toplevel):
 
         self.library_treeview.heading(col1, command=lambda: self.treeview_sort_column(col1,col2, not reverse))
 
-
     def start_loading(self):
         self.library_treeview.pack_forget()
         self.loading_label.pack()
@@ -245,7 +258,6 @@ class LibraryWindow(tk.Toplevel):
     def update_library_view(self, hymns):
         for i, hymn in enumerate(hymns.values()):
             self.add_hymn_to_library(i, hymn)
-
 
     def add_hymn_to_library(self, i, hymn):
         if hymn.path:
@@ -432,6 +444,10 @@ class OrganPlayerView(tk.Tk):
 
         # Set the main menu bar to be the menu for the application
         self.config(menu=self.menu_bar)
+        self.button_frame.grid_remove()
+        self.show_stop_selection_window_button.grid_remove()
+        self.left_frame.grid_configure(columnspan=2)
+        
 
     def show_stop_selection_window(self):
         StopSelectionWindow(self.master, None, self.controller, None, context="playlist")
@@ -575,12 +591,23 @@ class OrganPlayerView(tk.Tk):
         self.filemenu.add_command(label="Save Playlist", command=self.save_playlist)
         self.filemenu.add_command(label="Clear Playlist", command=self.clear_playlist)
         self.filemenu.add_separator()
+        self.filemenu.add_command(label="Toggle Edit Mode", command=self.toggle_admin)
         self.filemenu.add_command(label="Exit", command=self.quit)
         self.midi_menu.add_command(label="Refresh Midi Devices", command=self.refresh_midi_devices)
         self.midi_menu.add_separator()
         self.play_button.configure(command=self.play)
         self.stop_button.configure(command=self.controller.stop_playback)
         self.library_window = LibraryWindow(self, self.controller)
+
+    def toggle_admin(self):
+        if self.button_frame.winfo_viewable():
+            self.button_frame.grid_remove()
+            self.show_stop_selection_window_button.grid_remove()
+            self.left_frame.grid_configure(columnspan=2)
+        else:
+            self.left_frame.grid_configure(columnspan=1)
+            self.button_frame.grid()
+            self.show_stop_selection_window_button.grid()
 
     def save_playlist(self):
         playlist = [self.playlist_treeview.item(item_id) for item_id in self.playlist_treeview.get_children()]
@@ -670,3 +697,4 @@ class OrganPlayerView(tk.Tk):
 
     def start_mainloop(self):
         tk.mainloop()
+

@@ -51,8 +51,8 @@ def convert_type_0_to_type_1(input_file, output_file, parsed_filename):
     mid = MidiFile(input_file)
 
     # Ensure the file is Type 0
-    if mid.type != 0:
-        raise ValueError("The input file is not a Type 0 MIDI file")
+    # if mid.type != 0:
+    #     raise ValueError("The input file is not a Type 0 MIDI file")
 
     # Create a new MIDI Type 1 file
     new_mid = MidiFile(type=1)
